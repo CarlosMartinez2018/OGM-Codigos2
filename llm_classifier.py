@@ -16,10 +16,12 @@ import asyncio
 import json
 import logging
 import re
+from collections import defaultdict
 from difflib import SequenceMatcher
 from typing import Any, Optional
 
 import httpx
+import preflight
 from rich.console import Console
 from rich.table import Table
 from sqlalchemy import select
@@ -31,6 +33,7 @@ from database import async_session, engine, init_db
 from models import (
     DomainLenderMap,
     EmailClassification,
+    EmailReview,
     LenderWaiverDocument,
     LenderWaiverMatrix,
     ProductionEmail,
@@ -167,6 +170,14 @@ class EmailClassifier:
         # Cargar conocimiento de negocio una sola vez por lote.
         kb = await self._load_business_data(session)
 
+        # Agrupar por case_id (conversation_id) para el gate de dedup.
+        groups: dict[str, list[EmailData]] = defaultdict(list)
+        email_data_by_id: dict[int, EmailData] = {}
+        for pe in emails:
+            ed = self._production_to_email_data(pe)
+            email_data_by_id[pe.id] = ed
+            groups[pe.case_id or pe.conversation_id or ed.conversation_id].append(ed)
+
         results: list[tuple[ProductionEmail, ClassificationResult]] = []
         for production_email in emails:
             if not reclassify:
@@ -178,9 +189,16 @@ class EmailClassifier:
                 if existing:
                     continue
 
-            result = await self.classify_production_email(
-                production_email, session, kb=kb
-            )
+            email = email_data_by_id[production_email.id]
+            case_id = production_email.case_id or production_email.conversation_id or email.conversation_id
+            pre = preflight.evaluate(email, kb, groups[case_id])
+            if not pre.passed:
+                if pre.stage == "lender_nuevo":
+                    await self._ensure_pending_lender(session, email.sender_domain)
+                await self._save_review(session, production_email, pre, case_id)
+                continue
+
+            result = await self.classify(email, session, kb=kb)
             await self.save_classification(session, production_email, result)
             results.append((production_email, result))
 
@@ -223,6 +241,44 @@ class EmailClassifier:
         )
         await session.execute(stmt)
 
+    async def _ensure_pending_lender(self, session: AsyncSession, domain: str) -> None:
+        domain = (domain or "").lower()
+        if not domain:
+            return
+        stmt = pg_insert(DomainLenderMap).values(
+            domain=domain,
+            lender_name=preflight._infer_lender_name(domain),
+            status="POR_APROBAR",
+        )
+        stmt = stmt.on_conflict_do_nothing(index_elements=["domain"])
+        await session.execute(stmt)
+
+    async def _save_review(
+        self,
+        session: AsyncSession,
+        production_email: ProductionEmail,
+        result: "preflight.PreflightResult",
+        case_id: str,
+    ) -> None:
+        stmt = pg_insert(EmailReview).values(
+            production_email_id=production_email.id,
+            message_id=production_email.message_id,
+            conversation_id=production_email.conversation_id or "",
+            case_id=case_id,
+            stage=result.stage,
+            reason=result.reason,
+            detected_original_sender=result.detected_original_sender,
+        )
+        stmt = stmt.on_conflict_do_update(
+            index_elements=["message_id", "stage"],
+            set_={
+                "reason": stmt.excluded.reason,
+                "detected_original_sender": stmt.excluded.detected_original_sender,
+                "case_id": stmt.excluded.case_id,
+            },
+        )
+        await session.execute(stmt)
+
     async def _load_business_data(self, session: AsyncSession) -> dict[str, Any]:
         domain_rows = (await session.scalars(select(DomainLenderMap))).all()
         matrix_rows = (await session.scalars(select(LenderWaiverMatrix))).all()
@@ -232,7 +288,15 @@ class EmailClassifier:
             )
         ).all()
 
-        domain_map = {row.domain.lower(): row.lender_name for row in domain_rows}
+        domain_map = {}
+        domain_status = {}
+        domain_name = {}
+        for row in domain_rows:
+            d = row.domain.lower()
+            domain_status[d] = row.status
+            domain_name[d] = row.lender_name
+            if row.status == "APROBADO":
+                domain_map[d] = row.lender_name
         authorized_lenders = set(domain_map.values())
 
         docs_by_matrix_id: dict[int, list[str]] = {}
@@ -266,6 +330,8 @@ class EmailClassifier:
             "authorized_lenders": authorized_lenders,
             "entries": entries,
             "by_lender": by_lender,
+            "domain_status": domain_status,
+            "domain_name": domain_name,
         }
 
     async def _load_training_examples(
