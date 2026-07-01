@@ -6,8 +6,8 @@ reglas (lender_waiver_matrix) y el mapeo de dominios (domain_lender_map) puedan
 recargarse en un entorno limpio (produccion) sin perder informacion.
 
 Salida:
-    lender_waiver_matrix.json   (documents_expected como lista)
-    domain_lender_map.json      (dict domain -> lender_name)
+    lender_waiver_matrix.json   (documents_expected como lista desde lender_waiver_documents)
+    domain_lender_map.json      (lista de objetos {domain, lender_name, status})
 
 Uso:
     python export_seed.py
@@ -35,11 +35,19 @@ def _split_documents(raw: str | None) -> list[str]:
 
 async def _export_matrix() -> int:
     rows = await _fetch(
-        "SELECT lender, lender_aliases, waiver_type, triggers, "
-        "evidence_required_ops, evidence_required_insurance, documents_expected, "
+        "SELECT id, lender, lender_aliases, waiver_type, triggers, "
+        "evidence_required_ops, evidence_required_insurance, "
         "actions_to_automate, waiver_pack "
         "FROM lender_waiver_matrix ORDER BY id"
     )
+    doc_rows = await _fetch(
+        "SELECT lender_waiver_id, document_name FROM lender_waiver_documents ORDER BY lender_waiver_id, position"
+    )
+    # Build map: lender_waiver_id -> [document_name, ...]
+    docs_by_id: dict[int, list[str]] = {}
+    for d in doc_rows:
+        docs_by_id.setdefault(d["lender_waiver_id"], []).append(d["document_name"])
+
     entries = []
     for r in rows:
         aliases = r["lender_aliases"]
@@ -55,7 +63,7 @@ async def _export_matrix() -> int:
             "triggers": r["triggers"] or "",
             "evidence_required_ops": r["evidence_required_ops"] or "",
             "evidence_required_insurance": r["evidence_required_insurance"] or "",
-            "documents_expected": _split_documents(r["documents_expected"]),
+            "documents_expected": docs_by_id.get(r["id"], []),
             "actions_to_automate": r["actions_to_automate"] or "",
             "waiver_pack": r["waiver_pack"] or "",
         })
@@ -65,8 +73,8 @@ async def _export_matrix() -> int:
 
 
 async def _export_domain_map() -> int:
-    rows = await _fetch("SELECT domain, lender_name FROM domain_lender_map ORDER BY id")
-    data = {r["domain"]: r["lender_name"] for r in rows}
+    rows = await _fetch("SELECT domain, lender_name, status FROM domain_lender_map ORDER BY id")
+    data = [{"domain": r["domain"], "lender_name": r["lender_name"], "status": r["status"]} for r in rows]
     path = BASE_DIR / "domain_lender_map.json"
     path.write_text(json.dumps(data, indent=2, ensure_ascii=False), encoding="utf-8")
     return len(data)

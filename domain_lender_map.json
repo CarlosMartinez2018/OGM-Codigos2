@@ -1,16 +1,117 @@
-{
-  "jll.com": "JLL (Insurance Servicing)",
-  "am.jll.com": "JLL (Insurance Servicing)",
-  "cmservicing.com": "Capital One (Servicing)",
-  "capitalone.com": "Capital One (Servicing)",
-  "freddiemac.com": "Freddie Mac (via JLL Real Estate Capital)",
-  "grandbridge.com": "Grandbridge / KeyBank / Wells Fargo Trustee chain",
-  "keybank.com": "Grandbridge / KeyBank / Wells Fargo Trustee chain",
-  "wellsfargo.com": "Grandbridge / KeyBank / Wells Fargo Trustee chain",
-  "berkadia.com": "Berkadia",
-  "nmrk.com": "NEWMARK (MCM Servicing)",
-  "newmark.com": "NEWMARK (MCM Servicing)",
-  "greystone.com": "Greystone",
-  "cbre.com": "CBRE (Insurance Servicing)",
-  "mtb.com": "M&T Bank"
-}
+[
+  {
+    "domain": "jll.com",
+    "lender_name": "JLL (Insurance Servicing)",
+    "status": "APROBADO"
+  },
+  {
+    "domain": "am.jll.com",
+    "lender_name": "JLL (Insurance Servicing)",
+    "status": "APROBADO"
+  },
+  {
+    "domain": "cmservicing.com",
+    "lender_name": "Capital One (Servicing)",
+    "status": "APROBADO"
+  },
+  {
+    "domain": "capitalone.com",
+    "lender_name": "Capital One (Servicing)",
+    "status": "APROBADO"
+  },
+  {
+    "domain": "freddiemac.com",
+    "lender_name": "Freddie Mac (via JLL Real Estate Capital)",
+    "status": "APROBADO"
+  },
+  {
+    "domain": "grandbridge.com",
+    "lender_name": "Grandbridge / KeyBank / Wells Fargo Trustee chain",
+    "status": "APROBADO"
+  },
+  {
+    "domain": "keybank.com",
+    "lender_name": "Grandbridge / KeyBank / Wells Fargo Trustee chain",
+    "status": "APROBADO"
+  },
+  {
+    "domain": "wellsfargo.com",
+    "lender_name": "Grandbridge / KeyBank / Wells Fargo Trustee chain",
+    "status": "APROBADO"
+  },
+  {
+    "domain": "berkadia.com",
+    "lender_name": "Berkadia",
+    "status": "APROBADO"
+  },
+  {
+    "domain": "nmrk.com",
+    "lender_name": "NEWMARK (MCM Servicing)",
+    "status": "APROBADO"
+  },
+  {
+    "domain": "newmark.com",
+    "lender_name": "NEWMARK (MCM Servicing)",
+    "status": "APROBADO"
+  },
+  {
+    "domain": "greystone.com",
+    "lender_name": "Greystone",
+    "status": "APROBADO"
+  },
+  {
+    "domain": "cbre.com",
+    "lender_name": "CBRE (Insurance Servicing)",
+    "status": "APROBADO"
+  },
+  {
+    "domain": "mtb.com",
+    "lender_name": "M&T Bank",
+    "status": "APROBADO"
+  },
+  {
+    "domain": "teams.mail.microsoft",
+    "lender_name": "teams.mail.microsoft",
+    "status": "NO_APROBADO"
+  },
+  {
+    "domain": "proofpointessentials.com",
+    "lender_name": "proofpointessentials.com",
+    "status": "NO_APROBADO"
+  },
+  {
+    "domain": "microsoft.com",
+    "lender_name": "microsoft.com",
+    "status": "NO_APROBADO"
+  },
+  {
+    "domain": "greyco.com",
+    "lender_name": "Greyco",
+    "status": "APROBADO"
+  },
+  {
+    "domain": "berkleyenvironmental.com",
+    "lender_name": "Berkleyenvironmental",
+    "status": "APROBADO"
+  },
+  {
+    "domain": "acmclaims.com",
+    "lender_name": "Acmclaims",
+    "status": "POR_APROBAR"
+  },
+  {
+    "domain": "tryadvocate.com",
+    "lender_name": "Tryadvocate",
+    "status": "POR_APROBAR"
+  },
+  {
+    "domain": "marshmma.com",
+    "lender_name": "Marshmma",
+    "status": "POR_APROBAR"
+  },
+  {
+    "domain": "gomainspring.com",
+    "lender_name": "Gomainspring",
+    "status": "POR_APROBAR"
+  }
+]

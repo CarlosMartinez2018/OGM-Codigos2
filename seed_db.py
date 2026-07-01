@@ -94,9 +94,15 @@ async def _seed_domain_lender_map():
         data = json.load(f)
 
     async with async_session() as session:
-        for domain, lender_name in data.items():
-            row = DomainLenderMap(domain=domain, lender_name=lender_name)
-            session.add(row)
+        for entry in data:
+            if isinstance(entry, str):
+                # compat formato viejo {domain: lender}
+                domain, lender_name, status = entry, data[entry], "APROBADO"
+            else:
+                domain = entry["domain"]
+                lender_name = entry["lender_name"]
+                status = entry.get("status", "APROBADO")
+            session.add(DomainLenderMap(domain=domain, lender_name=lender_name, status=status))
         await session.commit()
 
         count = await session.scalar(select(func.count()).select_from(DomainLenderMap))
