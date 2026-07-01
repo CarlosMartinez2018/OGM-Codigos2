@@ -52,5 +52,11 @@ beautifulsoup4>=4.12.3   # Fallback para limpiar HTML del cuerpo del correo
 lxml>=5.2.1              # Backend rápido para BeautifulSoup
 
 
+# --- API REST (capa web sobre el pipeline) -----------------------------------
+fastapi>=0.115.0         # Framework API async
+uvicorn[standard]>=0.34.0 # Servidor ASGI (uvicorn api:app)
+
+
 # --- Testing -----------------------------------------------------------------
 pytest==8.3.4
+httpx>=0.27.0            # tambien usado por TestClient de FastAPI
