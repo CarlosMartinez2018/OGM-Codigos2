@@ -24,6 +24,20 @@ class Settings(BaseSettings):
     ollama_model: str = "llama3.2:3b"  # 3b: ~3-4x mas rapido que 8b en CPU
     ollama_timeout: float = 300.0  # 8B CPU-only: cold-start puede pasar 200s; 45s daba ReadTimeout
 
+    # Pre-filtrado
+    internal_domains: list[str] = ["acentopartners.com", "captiveadvisorypartners.com"]
+    security_block_markers: list[str] = [
+        "encrypted message",
+        "this message is protected",
+        "rights-protected",
+        "enable content to view",
+        "message has been blocked",
+        "contenido bloqueado",
+        "no se puede mostrar el contenido",
+        "cannot display this message",
+    ]
+    security_min_body_len: int = 20
+
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
 
     @field_validator("debug", mode="before")

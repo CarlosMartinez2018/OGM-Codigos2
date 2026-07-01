@@ -50,3 +50,7 @@ python-dateutil>=2.9.0   # Parseo flexible de fechas en cabeceras de correo
 # --- HTML parsing (limpieza del body) ----------------------------------------
 beautifulsoup4>=4.12.3   # Fallback para limpiar HTML del cuerpo del correo
 lxml>=5.2.1              # Backend rápido para BeautifulSoup
+
+
+# --- Testing -----------------------------------------------------------------
+pytest==8.3.4
