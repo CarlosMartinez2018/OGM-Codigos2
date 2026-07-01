@@ -200,3 +200,9 @@ class ClassificationResult:
     actions_to_automate: str = ""
     raw_llm_response: Optional[str] = None
     validation_details: dict = field(default_factory=dict)
+
+    # --- Features absorbidas de OGM_Lenders -----------------------------------
+    secondary_issues: list[str] = field(default_factory=list)   # waivers adicionales del mismo lender
+    communication_category: str = "OPERATIONAL_WAIVER"          # LENDER_COMPLIANCE|LENDER_ALERT|WAIVER_REQUEST|COVENANT_BREACH|OPERATIONAL_WAIVER
+    escalate_for_review: bool = False                           # riesgo critico o inyeccion detectada
+    suggested_attachments: list[str] = field(default_factory=list)  # PDFs candidatos por lender

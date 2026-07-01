@@ -38,6 +38,9 @@ class Settings(BaseSettings):
     ]
     security_min_body_len: int = 20
 
+    # Attachment finder: raiz donde se buscan PDFs por lender para adjuntar
+    document_base_path: str = "./documentos"
+
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
 
     @field_validator("debug", mode="before")

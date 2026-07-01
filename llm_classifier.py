@@ -15,9 +15,11 @@ import argparse
 import asyncio
 import json
 import logging
+import os
 import re
 from collections import defaultdict
 from difflib import SequenceMatcher
+from pathlib import Path
 from typing import Any, Optional
 
 import httpx
@@ -59,8 +61,86 @@ PROMPT_INJECTION_PATTERNS = [
 ]
 
 
+# Categoria de comunicacion (orden = prioridad). Absorbido de OGM_Lenders.
+_CATEGORY_KEYWORDS: list[tuple[str, list[str]]] = [
+    ("COVENANT_BREACH", ["covenant", "breach", "event of default"]),
+    ("LENDER_ALERT", ["urgent", "final notice", "past due", "overdue",
+                      "deadline", "reminder", "immediately"]),
+    ("LENDER_COMPLIANCE", ["non-compliance", "noncompliance", "compliance",
+                           "deficiency", "notice", "required"]),
+    ("WAIVER_REQUEST", ["waiver", "request"]),
+]
+
+# Palabras que fuerzan escalado a revision humana.
+_CRITICAL_KEYWORDS = [
+    "legal action", "default", "cancellation", "cancel", "penalty",
+    "past due", "overdue", "non-compliance", "noncompliance",
+    "final notice", "deadline", "urgent", "termination",
+]
+
+_TOKEN_STOPWORDS = {"and", "or", "the", "of", "for", "to", "a", "de", "la", "el", "y"}
+
+
 def _normalize(text: str | None) -> str:
     return re.sub(r"\s+", " ", (text or "").lower()).strip()
+
+
+def _communication_category(subject: str, body: str) -> str:
+    """Clasifica la naturaleza del correo por palabras clave (prioridad por orden)."""
+    text = _normalize(f"{subject} {body}")
+    for category, keywords in _CATEGORY_KEYWORDS:
+        if any(kw in text for kw in keywords):
+            return category
+    return "OPERATIONAL_WAIVER"
+
+
+def _should_escalate(subject: str, body: str, injection: bool) -> bool:
+    """True cuando hay inyeccion de prompt o riesgo critico -> revision humana."""
+    if injection:
+        return True
+    text = _normalize(f"{subject} {body}")
+    return any(kw in text for kw in _CRITICAL_KEYWORDS)
+
+
+def _overlap_tokens(name: str, haystack: str) -> int:
+    tokens = [t for t in re.findall(r"[a-z0-9]+", _normalize(name))
+              if len(t) > 2 and t not in _TOKEN_STOPWORDS]
+    return sum(1 for t in tokens if t in haystack)
+
+
+def _secondary_issues(email: EmailData, lender: str, primary_waiver: str,
+                      kb: dict[str, Any]) -> list[str]:
+    """Waivers adicionales del mismo lender presentes en el correo (excluye el primario)."""
+    if lender == "UNKNOWN":
+        return []
+    entries = kb.get("by_lender", {}).get(lender) or []
+    haystack = _normalize(f"{email.subject} {email.body_text}")
+    out: list[str] = []
+    for entry in entries:
+        waiver = entry["waiver_type"]
+        if waiver == primary_waiver or waiver in out:
+            continue
+        name = _normalize(waiver)
+        if (name and name in haystack) or _overlap_tokens(waiver, haystack) >= 2:
+            out.append(waiver)
+    return out
+
+
+def _find_attachments(lender: str, base_path: str) -> list[str]:
+    """Busca PDFs bajo base_path en carpetas cuyo path contiene el nombre del lender."""
+    if not lender or not base_path:
+        return []
+    root = Path(base_path)
+    if not root.exists():
+        return []
+    lender_lower = lender.lower()
+    found: list[str] = []
+    for dirpath, _dirs, files in os.walk(root):
+        if lender_lower in dirpath.lower():
+            for f in files:
+                if f.lower().endswith(".pdf"):
+                    found.append(os.path.join(dirpath, f))
+    return found
 
 
 def _sender_email(sender: str | None) -> str:
@@ -151,6 +231,10 @@ class EmailClassifier:
             result = await self._enhance_with_llm(email, result, kb)
             result = self._enforce_validation(result, kb)
 
+        # Features derivadas del lender/waiver finales (post-validacion).
+        result.secondary_issues = _secondary_issues(email, result.lender, result.waiver_type, kb)
+        result.suggested_attachments = _find_attachments(result.lender, settings.document_base_path)
+
         return result
 
     def _llm_is_useful(self, result: ClassificationResult, kb: dict[str, Any]) -> bool:
@@ -227,6 +311,10 @@ class EmailClassifier:
             documents_expected=result.documents_expected,
             validation_details=result.validation_details,
             raw_llm_response=result.raw_llm_response,
+            secondary_issues=result.secondary_issues,
+            communication_category=result.communication_category,
+            escalate_for_review=result.escalate_for_review,
+            suggested_attachments=result.suggested_attachments,
         )
         stmt = stmt.on_conflict_do_update(
             index_elements=["message_id"],
@@ -241,6 +329,10 @@ class EmailClassifier:
                 "documents_expected": stmt.excluded.documents_expected,
                 "validation_details": stmt.excluded.validation_details,
                 "raw_llm_response": stmt.excluded.raw_llm_response,
+                "secondary_issues": stmt.excluded.secondary_issues,
+                "communication_category": stmt.excluded.communication_category,
+                "escalate_for_review": stmt.excluded.escalate_for_review,
+                "suggested_attachments": stmt.excluded.suggested_attachments,
             },
         )
         await session.execute(stmt)
@@ -554,6 +646,10 @@ class EmailClassifier:
             waiver_pack=waiver_entry["waiver_pack"] if waiver_entry else "",
             actions_to_automate=waiver_entry["actions_to_automate"] if waiver_entry else "",
             validation_details=validation,
+            communication_category=_communication_category(email.subject, email.body_text),
+            escalate_for_review=_should_escalate(
+                email.subject, email.body_text, validation.get("prompt_injection_detected", False)
+            ),
         )
         return result
 

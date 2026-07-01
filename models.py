@@ -145,6 +145,12 @@ class EmailClassification(Base):
     documents_expected: Mapped[list] = mapped_column(JSON, default=list)
     validation_details: Mapped[dict] = mapped_column(JSON, default=dict)
     raw_llm_response: Mapped[str | None] = mapped_column(Text, nullable=True)
+
+    # Features absorbidas de OGM_Lenders
+    secondary_issues: Mapped[list] = mapped_column(JSON, default=list)
+    communication_category: Mapped[str] = mapped_column(String(50), default="OPERATIONAL_WAIVER")
+    escalate_for_review: Mapped[bool] = mapped_column(Boolean, default=False)
+    suggested_attachments: Mapped[list] = mapped_column(JSON, default=list)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)
     )

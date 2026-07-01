@@ -125,6 +125,10 @@ def _classification_to_dict(row: EmailClassification) -> dict[str, Any]:
         "suggested_response": row.suggested_response,
         "documents_expected": row.documents_expected or [],
         "validation_details": row.validation_details or {},
+        "secondary_issues": row.secondary_issues or [],
+        "communication_category": row.communication_category,
+        "escalate_for_review": row.escalate_for_review,
+        "suggested_attachments": row.suggested_attachments or [],
         "created_at": row.created_at.isoformat() if row.created_at else None,
         "updated_at": row.updated_at.isoformat() if row.updated_at else None,
     }
