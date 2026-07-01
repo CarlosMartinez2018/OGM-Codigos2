@@ -99,7 +99,10 @@ def evaluate(email: EmailData, kb: dict, conversation_group: list[EmailData]) ->
 Orden (corta en el primer gate que falla):
 
 1. **Gate blacklist** — `sender_domain` con `status=NO_APROBADO` →
-   `PreflightResult(False, 'blacklist', ...)`.
+   `PreflightResult(False, 'blacklist', ...)`. El correo entra a la cola
+   `email_reviews` (no se descarta en silencio) y el `reason` **nombra el
+   lender/dominio bloqueado**: `Lender/dominio en blacklist (NO_APROBADO):
+   <lender_name> <<domain>>`, para que el usuario lo vea identificado al revisar.
 2. **Gate dominio**:
    - `APROBADO` → sigue.
    - `POR_APROBAR` → `(False, 'lender_por_aprobar')`.
