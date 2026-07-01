@@ -6,8 +6,10 @@ los botones aprobar/rechazar.
 """
 from __future__ import annotations
 
-from datetime import timedelta
+from collections import defaultdict
+from datetime import datetime, timezone
 
+import preflight
 from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -40,27 +42,23 @@ async def approve_domain(session: AsyncSession, domain: str) -> dict:
     )
     await session.commit()
 
-    # Ventana: desde 1 dia antes de la creacion del lender hasta ahora.
-    window_start = row.created_at - timedelta(days=1)
+    # Reprocesar TODOS los correos del dominio (sin ventana de fecha).
     emails = (await session.scalars(
-        select(ProductionEmail)
-        .where(ProductionEmail.sender_domain == domain)
-        .where(ProductionEmail.received_date >= window_start)
+        select(ProductionEmail).where(ProductionEmail.sender_domain == domain)
     )).all()
 
-    # Marca sus reviews lender_* como gestionadas.
-    from datetime import datetime, timezone
-    await session.execute(
-        update(EmailReview)
-        .where(EmailReview.stage.in_(["lender_nuevo", "lender_por_aprobar"]))
-        .where(EmailReview.message_id.in_([e.message_id for e in emails] or [""]))
-        .values(status="GESTIONADO", resolved_at=datetime.now(timezone.utc))
-    )
-    await session.commit()
+    # Marca sus reviews lender_* como gestionadas (solo si hay correos).
+    if emails:
+        await session.execute(
+            update(EmailReview)
+            .where(EmailReview.stage.in_(["lender_nuevo", "lender_por_aprobar"]))
+            .where(EmailReview.message_id.in_([e.message_id for e in emails]))
+            .values(status="GESTIONADO", resolved_at=datetime.now(timezone.utc))
+        )
+        await session.commit()
 
     # Re-clasifica esos correos con la KB actualizada (dominio ya APROBADO).
     kb = await classifier._load_business_data(session)
-    from collections import defaultdict
     groups = defaultdict(list)
     ed_by_id = {}
     for pe in emails:
@@ -68,7 +66,6 @@ async def approve_domain(session: AsyncSession, domain: str) -> dict:
         ed_by_id[pe.id] = ed
         groups[pe.case_id or pe.conversation_id or ed.conversation_id].append(ed)
 
-    import preflight
     reclassified = 0
     for pe in emails:
         ed = ed_by_id[pe.id]
@@ -76,6 +73,7 @@ async def approve_domain(session: AsyncSession, domain: str) -> dict:
         pre = preflight.evaluate(ed, kb, groups[case_id])
         if not pre.passed:
             await classifier._save_review(session, pe, pre, case_id)
+            await classifier._delete_classification(session, pe.message_id)
             continue
         result = await classifier.classify(ed, session, kb=kb)
         await classifier.save_classification(session, pe, result)
