@@ -23,7 +23,8 @@ NOISE_DOMAINS = ["teams.mail.microsoft", "proofpointessentials.com", "microsoft.
 
 async def _col_exists(conn, table, column):
     r = await conn.execute(text(
-        "SELECT 1 FROM information_schema.columns WHERE table_name=:t AND column_name=:c"
+        "SELECT 1 FROM information_schema.columns "
+        "WHERE table_schema='public' AND table_name=:t AND column_name=:c"
     ), {"t": table, "c": column})
     return r.first() is not None
 
@@ -37,7 +38,8 @@ async def main():
 
     async with engine.begin() as conn:
         # domain_lender_map.status / created_at
-        if not await _col_exists(conn, "domain_lender_map", "status"):
+        status_existed = await _col_exists(conn, "domain_lender_map", "status")
+        if not status_existed:
             await conn.execute(text(
                 "ALTER TABLE domain_lender_map ADD COLUMN status VARCHAR(20) "
                 "NOT NULL DEFAULT 'POR_APROBAR'"
@@ -47,11 +49,12 @@ async def main():
                 "ALTER TABLE domain_lender_map ADD COLUMN created_at TIMESTAMPTZ "
                 "NOT NULL DEFAULT now()"
             ))
-        # Los dominios ya existentes son lenders validos (el ruido no esta aun
-        # en la tabla; se inserta como NO_APROBADO en el paso siguiente).
-        await conn.execute(text(
-            "UPDATE domain_lender_map SET status='APROBADO' WHERE status='POR_APROBAR'"
-        ))
+        # Solo en la PRIMERA corrida (cuando status recien se agrego) promover
+        # los dominios existentes a APROBADO.
+        if not status_existed:
+            await conn.execute(text(
+                "UPDATE domain_lender_map SET status='APROBADO' WHERE status='POR_APROBAR'"
+            ))
         # Dominios ruido -> blacklist. Upsert (sobrescribe a NO_APROBADO si existieran).
         for d in NOISE_DOMAINS:
             await conn.execute(text(
