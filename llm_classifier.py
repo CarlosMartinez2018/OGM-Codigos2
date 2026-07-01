@@ -24,7 +24,7 @@ import httpx
 import preflight
 from rich.console import Console
 from rich.table import Table
-from sqlalchemy import select
+from sqlalchemy import delete, select
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -196,6 +196,7 @@ class EmailClassifier:
                 if pre.stage == "lender_nuevo":
                     await self._ensure_pending_lender(session, email.sender_domain)
                 await self._save_review(session, production_email, pre, case_id)
+                await self._delete_classification(session, production_email.message_id)
                 continue
 
             result = await self.classify(email, session, kb=kb)
@@ -252,6 +253,11 @@ class EmailClassifier:
         )
         stmt = stmt.on_conflict_do_nothing(index_elements=["domain"])
         await session.execute(stmt)
+
+    async def _delete_classification(self, session: AsyncSession, message_id: str) -> None:
+        await session.execute(
+            delete(EmailClassification).where(EmailClassification.message_id == message_id)
+        )
 
     async def _save_review(
         self,
