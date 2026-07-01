@@ -24,7 +24,9 @@ import httpx
 import preflight
 from rich.console import Console
 from rich.table import Table
-from sqlalchemy import delete, select
+from datetime import datetime, timezone
+
+from sqlalchemy import delete, select, update
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -201,6 +203,7 @@ class EmailClassifier:
 
             result = await self.classify(email, session, kb=kb)
             await self.save_classification(session, production_email, result)
+            await self._resolve_reviews(session, production_email.message_id)
             results.append((production_email, result))
 
         await session.commit()
@@ -253,6 +256,15 @@ class EmailClassifier:
         )
         stmt = stmt.on_conflict_do_nothing(index_elements=["domain"])
         await session.execute(stmt)
+
+    async def _resolve_reviews(self, session: AsyncSession, message_id: str) -> None:
+        """Marca GESTIONADO cualquier review PENDIENTE de un correo ya clasificado."""
+        await session.execute(
+            update(EmailReview)
+            .where(EmailReview.message_id == message_id)
+            .where(EmailReview.status == "PENDIENTE")
+            .values(status="GESTIONADO", resolved_at=datetime.now(timezone.utc))
+        )
 
     async def _delete_classification(self, session: AsyncSession, message_id: str) -> None:
         await session.execute(

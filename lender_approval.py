@@ -77,6 +77,7 @@ async def approve_domain(session: AsyncSession, domain: str) -> dict:
             continue
         result = await classifier.classify(ed, session, kb=kb)
         await classifier.save_classification(session, pe, result)
+        await classifier._resolve_reviews(session, pe.message_id)
         reclassified += 1
     await session.commit()
     return {"domain": domain, "found": True, "reclassified": reclassified}
