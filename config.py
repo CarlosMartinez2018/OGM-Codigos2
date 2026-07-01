@@ -21,7 +21,7 @@ class Settings(BaseSettings):
     # Clasificador LLM opcional (reglas primero, LLM como apoyo)
     use_llm_classifier: bool = False
     ollama_base_url: str = "http://localhost:11434"
-    ollama_model: str = "llama3.1"
+    ollama_model: str = "llama3.2:3b"  # 3b: ~3-4x mas rapido que 8b en CPU
     ollama_timeout: float = 300.0  # 8B CPU-only: cold-start puede pasar 200s; 45s daba ReadTimeout
 
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
