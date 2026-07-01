@@ -122,8 +122,12 @@ Orden (corta en el primer gate que falla):
    (`encrypted message`, `rights-protected`, `message is protected`, `enable
    content`, `contenido bloqueado`, `no se puede mostrar`, etc.) →
    `(False, 'seguridad_bloqueo')`.
-5. **Gate dedup** — por `case_id`: solo el correo **primario** (menor
-   `received_date`) del caso continúa; los demás → `(False, 'duplicado')`.
+5. **Gate dedup** — por `case_id`: solo el correo **primario** del caso (el de
+   **menor `received_date`**, el primero del `conversation_id` por fecha) continúa
+   al LLM. Todo correo que **no** sea el primero por fecha → `(False, 'duplicado')`
+   y va a la **cola de revisión manual** (`email_reviews`, stage `duplicado`),
+   igual que cualquier otro FIN — no se descarta en silencio. Empates o
+   `received_date` nulo: primario = menor `id` (orden de ingreso).
 6. Si pasa todos → `(True)` y va al LLM.
 
 Los patrones de seguridad y umbral `N` viven en `config.py`
