@@ -1,4 +1,5 @@
-from preflight import PreflightResult, gate_blacklist, gate_domain, _infer_lender_name, gate_threads, _is_forward, _extract_original_sender, gate_security
+from datetime import datetime, timezone
+from preflight import PreflightResult, gate_blacklist, gate_domain, _infer_lender_name, gate_threads, _is_forward, _extract_original_sender, gate_security, gate_dedup, evaluate
 from schemas import EmailData
 
 
@@ -101,3 +102,34 @@ def test_security_ok_normal_body():
     e = EmailData(sender="a@jll.com", sender_domain="jll.com", subject="Waiver",
                   body_text="Please provide ACORD 25 and the endorsement pages for the property.")
     assert gate_security(e, _kb({})) is None
+
+
+def _mail(mid, domain, dt, subject="Waiver request for property", body="Please send ACORD 25 and endorsement pages."):
+    return EmailData(message_id=mid, sender=f"a@{domain}", sender_domain=domain,
+                     subject=subject, body_text=body,
+                     received_date=datetime(2026, 1, dt, tzinfo=timezone.utc))
+
+
+def test_dedup_primary_passes():
+    a = _mail("A", "jll.com", 1)
+    b = _mail("B", "jll.com", 2)
+    assert gate_dedup(a, [a, b]) is None
+
+
+def test_dedup_non_primary_goes_to_review():
+    a = _mail("A", "jll.com", 1)
+    b = _mail("B", "jll.com", 2)
+    r = gate_dedup(b, [a, b])
+    assert r.stage == "duplicado" and r.passed is False
+
+
+def test_evaluate_full_pass_for_lender_primary():
+    a = _mail("A", "jll.com", 1)
+    kb = {"domain_status": {"jll.com": "APROBADO"}}
+    assert evaluate(a, kb, [a]).passed is True
+
+
+def test_evaluate_blacklist_short_circuits():
+    e = _mail("A", "teams.mail.microsoft", 1)
+    kb = {"domain_status": {"teams.mail.microsoft": "NO_APROBADO"}}
+    assert evaluate(e, kb, [e]).stage == "blacklist"

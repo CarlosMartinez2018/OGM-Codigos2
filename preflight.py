@@ -103,3 +103,37 @@ def gate_security(email: EmailData, kb: dict[str, Any]) -> Optional[PreflightRes
         return PreflightResult(False, "seguridad_bloqueo",
                                "Contenido bloqueado o incompleto (cifrado/truncado).")
     return None
+
+
+def _sort_key(e: EmailData):
+    # received_date puede ser None; los nulos van al final. Desempate por message_id.
+    dt = e.received_date
+    return (dt is None, dt, e.message_id or "")
+
+
+def _is_primary(email: EmailData, group: list[EmailData]) -> bool:
+    if not group:
+        return True
+    primary = min(group, key=_sort_key)
+    return (email.message_id or "") == (primary.message_id or "")
+
+
+def gate_dedup(email: EmailData, group: list[EmailData]) -> Optional[PreflightResult]:
+    if _is_primary(email, group):
+        return None
+    return PreflightResult(False, "duplicado",
+                           "No es el primer correo del conversation_id por fecha.")
+
+
+def evaluate(email: EmailData, kb: dict[str, Any], group: list[EmailData]) -> PreflightResult:
+    for gate in (
+        lambda: gate_blacklist(email, kb),
+        lambda: gate_domain(email, kb),
+        lambda: gate_threads(email, kb),
+        lambda: gate_security(email, kb),
+        lambda: gate_dedup(email, group),
+    ):
+        result = gate()
+        if result is not None:
+            return result
+    return PreflightResult(True)
