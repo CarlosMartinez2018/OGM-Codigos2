@@ -88,3 +88,18 @@ def gate_threads(email: EmailData, kb: dict[str, Any]) -> Optional[PreflightResu
         return PreflightResult(False, "reenvio", reason, detected_original_sender=orig)
     reason = "Hilo sin origen de lender en el buzon."
     return PreflightResult(False, "hilo_incompleto", reason, detected_original_sender=orig)
+
+
+def _is_body_blocked(email: EmailData) -> bool:
+    body = (email.body_text or "").strip()
+    if len(body) < settings.security_min_body_len:
+        return True
+    low = body.lower()
+    return any(marker in low for marker in settings.security_block_markers)
+
+
+def gate_security(email: EmailData, kb: dict[str, Any]) -> Optional[PreflightResult]:
+    if _is_body_blocked(email):
+        return PreflightResult(False, "seguridad_bloqueo",
+                               "Contenido bloqueado o incompleto (cifrado/truncado).")
+    return None

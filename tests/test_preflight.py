@@ -1,4 +1,4 @@
-from preflight import PreflightResult, gate_blacklist, gate_domain, _infer_lender_name, gate_threads, _is_forward, _extract_original_sender
+from preflight import PreflightResult, gate_blacklist, gate_domain, _infer_lender_name, gate_threads, _is_forward, _extract_original_sender, gate_security
 from schemas import EmailData
 
 
@@ -83,3 +83,21 @@ def test_is_forward_by_subject():
 def test_extract_original_sender():
     assert _extract_original_sender("From: bob@x.com\n...") == "bob@x.com"
     assert _extract_original_sender("sin cabecera") is None
+
+
+def test_security_blocked_by_marker():
+    e = EmailData(sender="a@jll.com", sender_domain="jll.com",
+                  subject="secure", body_text="This message is protected. Enable content to view")
+    r = gate_security(e, _kb({}))
+    assert r.stage == "seguridad_bloqueo" and r.passed is False
+
+
+def test_security_blocked_by_short_body():
+    e = EmailData(sender="a@jll.com", sender_domain="jll.com", subject="x", body_text="ok")
+    assert gate_security(e, _kb({})).stage == "seguridad_bloqueo"
+
+
+def test_security_ok_normal_body():
+    e = EmailData(sender="a@jll.com", sender_domain="jll.com", subject="Waiver",
+                  body_text="Please provide ACORD 25 and the endorsement pages for the property.")
+    assert gate_security(e, _kb({})) is None
