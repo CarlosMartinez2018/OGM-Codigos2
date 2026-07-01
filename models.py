@@ -67,6 +67,10 @@ class DomainLenderMap(Base):
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     domain: Mapped[str] = mapped_column(String(255), unique=True, nullable=False)
     lender_name: Mapped[str] = mapped_column(String(200), nullable=False)
+    status: Mapped[str] = mapped_column(String(20), default="POR_APROBAR")
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -79,6 +83,7 @@ class ProductionEmail(Base):
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     message_id: Mapped[str] = mapped_column(String(500), unique=True, nullable=False)
     conversation_id: Mapped[str] = mapped_column(String(500), default="")
+    case_id: Mapped[str] = mapped_column(String(500), default="")
     sender: Mapped[str] = mapped_column(String(500), default="")
     sender_domain: Mapped[str] = mapped_column(String(255), default="")
     to_recipients: Mapped[list] = mapped_column(JSON, default=list)
@@ -147,4 +152,34 @@ class EmailClassification(Base):
         DateTime(timezone=True),
         default=lambda: datetime.now(timezone.utc),
         onupdate=lambda: datetime.now(timezone.utc),
+    )
+
+
+# ---------------------------------------------------------------------------
+# Cola de revision manual (correos descartados por el pre-filtrado)
+# ---------------------------------------------------------------------------
+
+class EmailReview(Base):
+    __tablename__ = "email_reviews"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    production_email_id: Mapped[int | None] = mapped_column(
+        Integer, ForeignKey("production_emails.id", ondelete="CASCADE"), nullable=True
+    )
+    message_id: Mapped[str] = mapped_column(String(500), nullable=False)
+    conversation_id: Mapped[str] = mapped_column(String(500), default="")
+    case_id: Mapped[str] = mapped_column(String(500), default="")
+    stage: Mapped[str] = mapped_column(String(40), nullable=False)
+    reason: Mapped[str] = mapped_column(Text, default="")
+    detected_original_sender: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    status: Mapped[str] = mapped_column(String(20), default="PENDIENTE")
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)
+    )
+    resolved_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+
+    __table_args__ = (
+        UniqueConstraint("message_id", "stage", name="uq_review_message_stage"),
     )
