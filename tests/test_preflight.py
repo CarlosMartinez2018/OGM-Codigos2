@@ -1,4 +1,4 @@
-from preflight import PreflightResult, gate_blacklist, gate_domain, _infer_lender_name
+from preflight import PreflightResult, gate_blacklist, gate_domain, _infer_lender_name, gate_threads, _is_forward, _extract_original_sender
 from schemas import EmailData
 
 
@@ -51,3 +51,35 @@ def test_domain_internal_passes_through():
 
 def test_infer_lender_name():
     assert _infer_lender_name("berkleyenvironmental.com") == "Berkleyenvironmental"
+
+
+def test_lender_direct_passes_threads():
+    e = EmailData(sender="a@jll.com", sender_domain="jll.com", subject="Waiver request")
+    assert gate_threads(e, _kb({"jll.com": "APROBADO"})) is None
+
+
+def test_internal_forward_goes_to_reenvio():
+    e = EmailData(
+        sender="blanca@acentopartners.com", sender_domain="acentopartners.com",
+        subject="FW: [EXTERNAL] Waiver request",
+        body_text="De: john@jll.com\nPara: blanca\nMensaje original",
+    )
+    r = gate_threads(e, _kb({"jll.com": "APROBADO"}))
+    assert r.stage == "reenvio" and r.detected_original_sender == "john@jll.com"
+
+
+def test_internal_no_forward_is_hilo_incompleto():
+    e = EmailData(sender="blanca@acentopartners.com", sender_domain="acentopartners.com",
+                  subject="Coordinacion interna", body_text="revisemos esto")
+    r = gate_threads(e, _kb({}))
+    assert r.stage == "hilo_incompleto"
+
+
+def test_is_forward_by_subject():
+    assert _is_forward(EmailData(subject="FW: algo")) is True
+    assert _is_forward(EmailData(subject="RE: algo")) is False
+
+
+def test_extract_original_sender():
+    assert _extract_original_sender("From: bob@x.com\n...") == "bob@x.com"
+    assert _extract_original_sender("sin cabecera") is None

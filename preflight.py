@@ -58,3 +58,33 @@ def gate_domain(email: EmailData, kb: dict[str, Any]) -> Optional[PreflightResul
     # No esta en el mapa -> nuevo lender por aprobar
     return PreflightResult(False, "lender_nuevo",
                            f"Dominio nuevo, requiere aprobacion: {domain}")
+
+
+_FORWARD_SUBJECT = re.compile(r"^\s*(fw|fwd|rv|enc)\s*:", re.IGNORECASE)
+_ORIGINAL_SENDER = re.compile(
+    r"(?im)^(?:de|from)\s*:\s*.*?([\w.\-+%]+@[\w.\-]+\.\w+)"
+)
+
+
+def _is_forward(email: EmailData) -> bool:
+    if _FORWARD_SUBJECT.search(email.subject or ""):
+        return True
+    return bool(_ORIGINAL_SENDER.search(email.body_text or ""))
+
+
+def _extract_original_sender(body: str | None) -> Optional[str]:
+    m = _ORIGINAL_SENDER.search(body or "")
+    return m.group(1).lower() if m else None
+
+
+def gate_threads(email: EmailData, kb: dict[str, Any]) -> Optional[PreflightResult]:
+    # Un correo directo de un lender aprobado es un hilo valido.
+    if _domain_status(email, kb) == "APROBADO":
+        return None
+    # Remitente interno / no-lender que llego hasta aca -> revision.
+    orig = _extract_original_sender(email.body_text)
+    if _is_forward(email):
+        reason = "Reenvio: la solicitud no llega directa del lender al buzon."
+        return PreflightResult(False, "reenvio", reason, detected_original_sender=orig)
+    reason = "Hilo sin origen de lender en el buzon."
+    return PreflightResult(False, "hilo_incompleto", reason, detected_original_sender=orig)
