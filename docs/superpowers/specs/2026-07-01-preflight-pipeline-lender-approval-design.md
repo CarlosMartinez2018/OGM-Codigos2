@@ -143,10 +143,13 @@ async def approve_domain(session, domain: str) -> ReprocessSummary
 async def reject_domain(session, domain: str) -> None
 ```
 
-- `approve_domain`: `status → APROBADO`. Luego **re-procesa** los correos de ese
-  dominio con `received_date` en `[created_at - 1 día, ahora]`:
-  marca sus `email_reviews` de stage `lender_*` como `GESTIONADO`, y corre
-  pipeline + LLM sobre ellos. Devuelve resumen (reprocesados, clasificados).
+- `approve_domain`: `status → APROBADO`. Luego **re-procesa TODOS** los correos de
+  ese dominio (sin ventana de fecha): marca sus `email_reviews` de stage `lender_*`
+  como `GESTIONADO`, y corre pipeline + LLM sobre ellos. Devuelve resumen
+  (reprocesados, clasificados).
+  (Reemplaza la ventana `[created_at - 1 día, ahora]` del spec original del cliente:
+  los correos históricos preceden a la creación del lender, así que se reprocesan
+  todos.)
 - `reject_domain`: `status → NO_APROBADO`. Futuros correos caen en Gate 1.
 
 Sin UI/CLI ahora: se llaman desde código/tests. La UI (futura) las expone con
