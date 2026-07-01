@@ -16,15 +16,15 @@ Pasos:
 Es idempotente: puede correrse varias veces sin romper nada.
 
 Uso:
-    python migrate_documents.py
+    python -m scripts.migrate_documents
 """
 import asyncio
 
 from rich.console import Console
 from sqlalchemy import text
 
-from database import engine, init_db
-import models  # noqa: F401 -- registra las tablas en Base.metadata para create_all
+from app.db.database import engine, init_db
+from app.db import models  # noqa: F401 -- registra las tablas en Base.metadata para create_all
 
 console = Console()
 

@@ -9,14 +9,14 @@ Agrega a email_classifications:
 NO borra datos. Idempotente.
 
 Uso:
-    python migrate_classifier_features.py
+    python -m scripts.migrate_classifier_features
 """
 import asyncio
 
 from rich.console import Console
 from sqlalchemy import text
 
-from database import engine
+from app.db.database import engine
 
 console = Console()
 

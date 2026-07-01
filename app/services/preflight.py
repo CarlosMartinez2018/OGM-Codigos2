@@ -11,8 +11,8 @@ import re
 from dataclasses import dataclass
 from typing import Any, Optional
 
-from config import settings
-from schemas import EmailData
+from app.core.config import settings
+from app.schemas import EmailData
 
 
 @dataclass

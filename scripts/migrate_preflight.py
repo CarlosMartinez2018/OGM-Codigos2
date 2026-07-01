@@ -6,15 +6,15 @@ y production_emails, crea email_reviews, y siembra estados iniciales.
 Idempotente.
 
 Uso:
-    python migrate_preflight.py
+    python -m scripts.migrate_preflight
 """
 import asyncio
 
 from rich.console import Console
 from sqlalchemy import text
 
-from database import engine, init_db
-import models  # noqa: F401 -- registra tablas en Base.metadata
+from app.db.database import engine, init_db
+from app.db import models  # noqa: F401 -- registra tablas en Base.metadata
 
 console = Console()
 

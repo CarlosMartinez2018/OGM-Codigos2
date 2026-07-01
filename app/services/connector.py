@@ -22,8 +22,8 @@ from typing import Optional
 import httpx
 import msal
 
-from config import settings
-from schemas import EmailData
+from app.core.config import settings
+from app.schemas import EmailData
 
 logger = logging.getLogger(__name__)
 

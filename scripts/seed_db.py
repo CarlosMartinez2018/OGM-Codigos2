@@ -1,8 +1,8 @@
 """
 seed_db.py — Limpia PostgreSQL y siembra datos iniciales desde los archivos JSON.
 
-Uso:
-    python seed_db.py
+Uso (desde la raiz del repo):
+    python -m scripts.seed_db
 """
 import asyncio
 import json
@@ -11,11 +11,12 @@ from pathlib import Path
 from rich.console import Console
 from sqlalchemy import text, select, func
 
-from database import engine, async_session, Base, drop_all, init_db
-from models import LenderWaiverMatrix, LenderWaiverDocument, DomainLenderMap
+from app.db.database import engine, async_session, Base, drop_all, init_db
+from app.db.models import LenderWaiverMatrix, LenderWaiverDocument, DomainLenderMap
 
 console = Console()
-BASE_DIR = Path(__file__).parent
+# JSON semilla viven en <repo>/data ; este script en <repo>/scripts
+BASE_DIR = Path(__file__).resolve().parent.parent / "data"
 
 
 async def _clean_postgres():

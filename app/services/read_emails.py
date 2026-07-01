@@ -23,11 +23,11 @@ from rich.table import Table
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy import select, func
 
-from config import settings
-from connector import outlook
-from schemas import EmailData
-from database import async_session, init_db, engine
-from models import ProductionEmail
+from app.core.config import settings
+from app.services.connector import outlook
+from app.schemas import EmailData
+from app.db.database import async_session, init_db, engine
+from app.db.models import ProductionEmail
 
 console = Console()
 logger = logging.getLogger(__name__)

@@ -5,13 +5,13 @@ Puros (sin BD).
 """
 from pathlib import Path
 
-from llm_classifier import (
+from app.services.llm_classifier import (
     _communication_category,
     _find_attachments,
     _secondary_issues,
     _should_escalate,
 )
-from schemas import EmailData
+from app.schemas import EmailData
 
 
 # --- communication_category -------------------------------------------------

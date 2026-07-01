@@ -5,8 +5,8 @@ Todas las funciones que necesitan datos los obtienen de PostgreSQL.
 """
 from sqlalchemy import select
 
-from database import async_session
-from models import LenderWaiverMatrix, DomainLenderMap
+from app.db.database import async_session
+from app.db.models import LenderWaiverMatrix, DomainLenderMap
 
 
 # Dominios internos que no son prestamistas

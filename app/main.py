@@ -24,16 +24,16 @@ from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from config import settings
-from database import async_session, engine, init_db
-from models import (
+from app.core.config import settings
+from app.db.database import async_session, engine, init_db
+from app.db.models import (
     DomainLenderMap,
     EmailClassification,
     EmailReview,
     ProductionEmail,
 )
-import lender_approval
-from llm_classifier import classifier
+from app.services import lender_approval
+from app.services.llm_classifier import classifier
 
 
 # ---------------------------------------------------------------------------

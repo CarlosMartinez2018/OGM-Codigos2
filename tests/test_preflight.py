@@ -1,6 +1,6 @@
 from datetime import datetime, timezone
-from preflight import PreflightResult, gate_blacklist, gate_domain, _infer_lender_name, gate_threads, _is_forward, _extract_original_sender, gate_security, gate_dedup, evaluate
-from schemas import EmailData
+from app.services.preflight import PreflightResult, gate_blacklist, gate_domain, _infer_lender_name, gate_threads, _is_forward, _extract_original_sender, gate_security, gate_dedup, evaluate
+from app.schemas import EmailData
 
 
 def _kb(domain_status):

@@ -9,12 +9,12 @@ from __future__ import annotations
 from collections import defaultdict
 from datetime import datetime, timezone
 
-import preflight
+from app.services import preflight
 from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from models import DomainLenderMap, EmailReview, ProductionEmail
-from llm_classifier import classifier
+from app.db.models import DomainLenderMap, EmailReview, ProductionEmail
+from app.services.llm_classifier import classifier
 
 
 async def reject_domain(session: AsyncSession, domain: str) -> None:

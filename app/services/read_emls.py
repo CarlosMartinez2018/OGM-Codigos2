@@ -22,9 +22,9 @@ from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy import select, func
 
 import mailparser
-from schemas import EmailData
-from database import async_session, init_db, engine
-from models import TrainingEmail
+from app.schemas import EmailData
+from app.db.database import async_session, init_db, engine
+from app.db.models import TrainingEmail
 
 console = Console()
 logger = logging.getLogger(__name__)

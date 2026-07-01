@@ -23,7 +23,7 @@ from pathlib import Path
 from typing import Any, Optional
 
 import httpx
-import preflight
+from app.services import preflight
 from rich.console import Console
 from rich.table import Table
 from datetime import datetime, timezone
@@ -32,9 +32,9 @@ from sqlalchemy import delete, select, update
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from config import settings
-from database import async_session, engine, init_db
-from models import (
+from app.core.config import settings
+from app.db.database import async_session, engine, init_db
+from app.db.models import (
     DomainLenderMap,
     EmailClassification,
     EmailReview,
@@ -43,7 +43,7 @@ from models import (
     ProductionEmail,
     TrainingEmail,
 )
-from schemas import ClassificationResult, EmailData
+from app.schemas import ClassificationResult, EmailData
 
 logger = logging.getLogger(__name__)
 console = Console()

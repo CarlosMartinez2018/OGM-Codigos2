@@ -1,4 +1,4 @@
-from models import DomainLenderMap, ProductionEmail, EmailReview
+from app.db.models import DomainLenderMap, ProductionEmail, EmailReview
 
 
 def test_domain_lender_map_has_status_and_created_at():

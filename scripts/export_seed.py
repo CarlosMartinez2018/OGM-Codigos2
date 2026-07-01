@@ -10,7 +10,7 @@ Salida:
     domain_lender_map.json      (lista de objetos {domain, lender_name, status})
 
 Uso:
-    python export_seed.py
+    python -m scripts.export_seed
 """
 import asyncio
 import json
@@ -19,10 +19,11 @@ from pathlib import Path
 from rich.console import Console
 from sqlalchemy import text
 
-from database import engine
+from app.db.database import engine
 
 console = Console()
-BASE_DIR = Path(__file__).parent
+# JSON semilla viven en <repo>/data ; este script en <repo>/scripts
+BASE_DIR = Path(__file__).resolve().parent.parent / "data"
 
 
 def _split_documents(raw: str | None) -> list[str]:

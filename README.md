@@ -7,12 +7,29 @@ Este repo es el backend autoritativo (la "Mejora" que consume el cascarón `OGM_
 ## Arquitectura
 
 ```
-React (Vite :5173)  ──/api──►  FastAPI (api.py :8000)  ──►  pipeline
-                                                             ├─ preflight.py     (5 gates → email_reviews)
-                                                             ├─ lender_approval  (APROBADO/POR_APROBAR/NO_APROBADO)
-                                                             └─ llm_classifier   (reglas + Ollama opcional)
-                                                                    │
-                                                             PostgreSQL (async / SQLAlchemy)
+React (Vite :5173)  ──/api──►  FastAPI (app.main :8000)  ──►  pipeline
+                                                              ├─ services/preflight        (5 gates → email_reviews)
+                                                              ├─ services/lender_approval  (APROBADO/POR_APROBAR/NO_APROBADO)
+                                                              └─ services/llm_classifier   (reglas + Ollama opcional)
+                                                                     │
+                                                              PostgreSQL (async / SQLAlchemy)
+```
+
+## Estructura
+
+```
+app/                    # backend (paquete Python)
+  main.py               #   FastAPI (uvicorn app.main:app)
+  schemas.py            #   dataclasses (EmailData, ClassificationResult)
+  core/config.py        #   Settings (pydantic)
+  db/                   #   database.py (engine/Base/session) + models.py (ORM)
+  services/             #   preflight, llm_classifier, lender_approval,
+                        #   lender_utils, connector, read_emails, read_emls
+scripts/                # seed_db, export_seed, migrate_* (correr con python -m)
+data/                   # domain_lender_map.json, lender_waiver_matrix.json (semilla)
+frontend/               # UI React (Vite + Tailwind)
+sample_emails/          # .eml de ejemplo
+tests/                  # pytest
 ```
 
 ## Requisitos
@@ -28,11 +45,11 @@ React (Vite :5173)  ──/api──►  FastAPI (api.py :8000)  ──►  pipe
 
 ```bash
 ./venv/Scripts/python.exe -m pip install -r requirements.txt
-# migraciones in-place (no destructivas), si aplica:
-./venv/Scripts/python.exe migrate_preflight.py
-./venv/Scripts/python.exe migrate_classifier_features.py
+# migraciones in-place (no destructivas), desde la raiz del repo:
+./venv/Scripts/python.exe -m scripts.migrate_preflight
+./venv/Scripts/python.exe -m scripts.migrate_classifier_features
 # servidor:
-./venv/Scripts/python.exe -m uvicorn api:app --reload --port 8000
+./venv/Scripts/python.exe -m uvicorn app.main:app --reload --port 8000
 ```
 
 Swagger: http://localhost:8000/docs
