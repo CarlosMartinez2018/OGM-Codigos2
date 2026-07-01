@@ -1,0 +1,52 @@
+# =============================================================================
+# requirements.txt — Dependencias del proyecto read_emails
+# =============================================================================
+# Crear el ambiente virtual:
+#   python -m venv venv
+#
+# Activar (Windows PowerShell):
+#   .\venv\Scripts\Activate.ps1
+#
+# Activar (Windows CMD):
+#   .\venv\Scripts\activate.bat
+#
+# Instalar dependencias:
+#   pip install -r requirements.txt
+# =============================================================================
+
+
+# --- Excel -------------------------------------------------------------------
+openpyxl>=3.1.2          # Lectura/escritura de archivos .xlsx
+
+
+# --- Consola / CLI -----------------------------------------------------------
+rich>=13.7.0             # Tablas y colores en la terminal
+
+
+# --- Parseo de archivos .eml -------------------------------------------------
+mail-parser>=3.15.0      # Parser robusto de archivos .eml (mailparser)
+
+
+# --- HTTP / Autenticación (Microsoft Graph API / Outlook) --------------------
+httpx>=0.27.0            # Cliente HTTP async (usado en connector.py)
+msal>=1.28.0             # Microsoft Authentication Library (tokens OAuth2)
+
+
+# --- Variables de entorno (.env) y Configuración -----------------------------
+python-dotenv>=1.0.1     # Carga de AZURE_*, OUTLOOK_MAILBOX, etc. desde .env
+pydantic-settings>=2.0.0 # Configuración con validación de tipos
+pydantic>=2.0.0          # Base para Settings
+
+
+# --- Base de datos PostgreSQL ------------------------------------------------
+SQLAlchemy>=2.0.0        # ORM async usado por database.py y models.py
+asyncpg>=0.29.0          # Driver async para postgresql+asyncpg://
+
+
+# --- Utilidades de fecha -----------------------------------------------------
+python-dateutil>=2.9.0   # Parseo flexible de fechas en cabeceras de correo
+
+
+# --- HTML parsing (limpieza del body) ----------------------------------------
+beautifulsoup4>=4.12.3   # Fallback para limpiar HTML del cuerpo del correo
+lxml>=5.2.1              # Backend rápido para BeautifulSoup

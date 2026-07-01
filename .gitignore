@@ -1,0 +1,24 @@
+# Entornos
+venv/
+.venv/
+env/
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+
+# Secretos y config local (NO commitear: contiene credenciales de Azure)
+.env
+.env.*
+!.env.example
+
+# Salidas generadas
+exports/
+
+# Editor / OS
+.vscode/
+.idea/
+Thumbs.db
+.DS_Store
