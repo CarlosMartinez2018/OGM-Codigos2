@@ -25,7 +25,7 @@ app/                    # backend (paquete Python)
   db/                   #   database.py (engine/Base/session) + models.py (ORM)
   services/             #   preflight, llm_classifier, lender_approval,
                         #   lender_utils, connector, read_emails, read_emls
-scripts/                # seed_db, export_seed, migrate_* (correr con python -m)
+scripts/                # seed_db.py (siembra prod limpia; correr con python -m scripts.seed_db)
 data/                   # domain_lender_map.json, lender_waiver_matrix.json (semilla)
 frontend/               # UI React (Vite + Tailwind)
 sample_emails/          # .eml de ejemplo
@@ -45,12 +45,13 @@ tests/                  # pytest
 
 ```bash
 ./venv/Scripts/python.exe -m pip install -r requirements.txt
-# migraciones in-place (no destructivas), desde la raiz del repo:
-./venv/Scripts/python.exe -m scripts.migrate_preflight
-./venv/Scripts/python.exe -m scripts.migrate_classifier_features
+# sembrar BD limpia desde data/*.json (crea el esquema desde models.py + carga datos):
+./venv/Scripts/python.exe -m scripts.seed_db
 # servidor:
 ./venv/Scripts/python.exe -m uvicorn app.main:app --reload --port 8000
 ```
+
+> El esquema vive en `app/db/models.py` (única fuente). `seed_db` hace `drop + create_all + carga JSON`. `data/*.json` son fuente primaria (status de dominios y documentos ya normalizados).
 
 Swagger: http://localhost:8000/docs
 
@@ -64,7 +65,7 @@ npm run dev
 
 App: http://localhost:5173 (proxya `/api` → :8000)
 
-## Endpoints (api.py, prefijo `/api/v1`)
+## Endpoints (app/main.py, prefijo `/api/v1`)
 
 | Método | Ruta | Descripción |
 |---|---|---|
