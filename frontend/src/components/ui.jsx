@@ -126,3 +126,26 @@ export function Loading({ label = 'Cargando…' }) {
 export function Empty({ children }) {
   return <p className="text-center text-muted text-sm py-8">{children}</p>
 }
+
+// Fila etiqueta/valor para drawers de detalle.
+export function Field({ label, value, mono = false }) {
+  if (value === null || value === undefined || value === '') return null
+  return (
+    <div>
+      <p className="eyebrow mb-0.5">{label}</p>
+      <p className={`text-sm text-ink ${mono ? 'font-mono text-[13px] break-all' : ''}`}>{value}</p>
+    </div>
+  )
+}
+
+// Bloque de sección dentro de un drawer.
+export function DetailBlock({ title, children }) {
+  return (
+    <section className="card overflow-hidden">
+      <div className="px-4 py-2.5 border-b border-line">
+        <p className="eyebrow">{title}</p>
+      </div>
+      <div className="px-4 py-3">{children}</div>
+    </section>
+  )
+}

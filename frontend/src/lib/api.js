@@ -22,10 +22,11 @@ function qs(params = {}) {
   return s ? `?${s}` : ''
 }
 
-// GET /health, GET /stats
+// GET /health, GET /stats, GET /lenders-and-waivers
 export const metaApi = {
   health: () => request('/health'),
   stats: () => request('/stats'),
+  lendersAndWaivers: () => request('/lenders-and-waivers'),
 }
 
 // GET /lenders  ·  POST /lenders/{domain}/approve|reject
@@ -35,9 +36,10 @@ export const lendersApi = {
   reject: (domain) => request(`/lenders/${encodeURIComponent(domain)}/reject`, { method: 'POST' }),
 }
 
-// GET /emails
+// GET /emails · GET /emails/{id}
 export const emailsApi = {
   list: (params = {}) => request(`/emails${qs(params)}`),
+  get: (id) => request(`/emails/${id}`),
 }
 
 // GET /reviews
@@ -45,9 +47,22 @@ export const reviewsApi = {
   list: (params = {}) => request(`/reviews${qs(params)}`),
 }
 
-// GET /classifications  ·  POST /classify/run
+// GET /classifications(/{id}) · POST /classify/run · approve · correct
 export const classificationsApi = {
   list: (params = {}) => request(`/classifications${qs(params)}`),
+  get: (id) => request(`/classifications/${id}`),
   run: (limit = 0, reclassify = false) =>
     request(`/classify/run${qs({ limit, reclassify })}`, { method: 'POST' }),
+  approve: (id, reviewedBy = 'operator') =>
+    request(`/classifications/${id}/approve${qs({ reviewed_by: reviewedBy })}`, { method: 'POST' }),
+  correct: (id, payload) =>
+    request(`/classifications/${id}/correct`, { method: 'POST', body: JSON.stringify(payload) }),
+}
+
+// Matriz lender-waiver (CRUD)
+export const waiversApi = {
+  list: (params = {}) => request(`/waivers${qs(params)}`),
+  create: (payload) => request('/waivers', { method: 'POST', body: JSON.stringify(payload) }),
+  update: (id, payload) => request(`/waivers/${id}`, { method: 'PUT', body: JSON.stringify(payload) }),
+  delete: (id) => request(`/waivers/${id}`, { method: 'DELETE' }),
 }

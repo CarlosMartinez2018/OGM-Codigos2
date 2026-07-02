@@ -9,6 +9,7 @@ const NAV = [
   { to: '/classifications', label: 'Clasificaciones', code: '02' },
   { to: '/reviews', label: 'Cola de revisión', code: '03' },
   { to: '/lenders', label: 'Lenders', code: '04' },
+  { to: '/waivers', label: 'Matriz waivers', code: '05' },
 ]
 
 function HealthDot() {

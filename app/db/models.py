@@ -151,6 +151,14 @@ class EmailClassification(Base):
     communication_category: Mapped[str] = mapped_column(String(50), default="OPERATIONAL_WAIVER")
     escalate_for_review: Mapped[bool] = mapped_column(Boolean, default=False)
     suggested_attachments: Mapped[list] = mapped_column(JSON, default=list)
+
+    # Human-in-the-loop: revision/correccion de la clasificacion
+    status: Mapped[str] = mapped_column(String(20), default="classified")  # classified|reviewed|corrected
+    reviewed_by: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    corrected_lender: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    corrected_waiver_type: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    correction_notes: Mapped[str | None] = mapped_column(Text, nullable=True)
+
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)
     )
