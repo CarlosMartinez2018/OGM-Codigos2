@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react'
 import { NavLink, Outlet } from 'react-router-dom'
-import { Seal } from './ui'
 import { metaApi } from '../lib/api'
 
 const NAV = [
@@ -42,12 +41,13 @@ export default function Layout() {
   return (
     <div className="min-h-screen flex bg-paper">
       <aside className="w-60 bg-navy text-white flex flex-col shrink-0 shadow-rail sticky top-0 h-screen">
-        <div className="px-4 py-5 flex items-center gap-3 border-b border-white/10">
-          <Seal />
-          <div className="leading-tight">
-            <p className="font-semibold tracking-tight">Acento Partners</p>
-            <p className="text-[11px] text-brass font-mono tracking-wider">WAIVER · CONTROL</p>
-          </div>
+        <div className="px-5 py-5 border-b border-white/10">
+          <img
+            src="/acento-logo.png"
+            alt="Acento Real Estate Partners"
+            className="w-full max-w-[180px] h-auto"
+          />
+          <p className="text-[11px] text-brass font-mono tracking-wider mt-2.5">WAIVER · CONTROL</p>
         </div>
 
         <nav className="flex-1 p-3 space-y-0.5">
