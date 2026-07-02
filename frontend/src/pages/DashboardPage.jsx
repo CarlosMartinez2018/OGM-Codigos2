@@ -71,7 +71,7 @@ export default function DashboardPage() {
               label="En revisión"
               value={pendingReviews}
               sub="cola manual pendiente"
-              tone={pendingReviews > 0 ? 'stop' : 'brass'}
+              tone={pendingReviews > 0 ? 'stop' : 'coral'}
             />
           </div>
 

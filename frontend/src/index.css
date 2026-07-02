@@ -33,8 +33,8 @@
            px-3.5 py-2 transition-colors disabled:opacity-50 disabled:pointer-events-none;
   }
   .btn-primary { @apply bg-navy text-white hover:bg-navyink; }
-  .btn-brass   { @apply bg-brass text-navyink; }
-  .btn-brass:hover { background:#94763B; color:#fff; }
+  .btn-coral   { @apply bg-coral text-navyink; }
+  .btn-coral:hover { background:#C74E36; color:#fff; }
   .btn-ghost   { @apply text-navy; box-shadow:inset 0 0 0 1px #E4E7EC; }
   .btn-ghost:hover { background:rgba(11,18,32,.03); }
   .btn-ok      { @apply text-white bg-ok px-2.5 py-1 text-xs; }
@@ -47,7 +47,7 @@
     @apply px-3 py-2 rounded-md border border-line bg-surface text-sm text-ink
            placeholder:text-faint focus:outline-none;
   }
-  .field:focus { border-color:#B4924F; box-shadow:0 0 0 3px rgba(180,146,79,.30); }
+  .field:focus { border-color:#E2664B; box-shadow:0 0 0 3px rgba(226,102,75,.30); }
 
   /* Tabla ledger */
   .ledger { @apply w-full text-sm border-separate border-spacing-0; }
@@ -59,7 +59,7 @@
   .ledger tbody td { @apply px-4 py-3 border-b border-line align-middle; }
   .ledger tbody tr:last-child td { @apply border-b-0; }
   .ledger tbody tr { @apply transition-colors; }
-  .ledger tbody tr:hover td { background:rgba(180,146,79,.05); }
+  .ledger tbody tr:hover td { background:rgba(226,102,75,.06); }
 
   .token { @apply font-mono text-[13px] text-navy; }
 }

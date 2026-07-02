@@ -8,9 +8,9 @@ export default {
         navy:     '#1C2445',
         navy2:    '#212B57',
         navyink:  '#141A34',
-        // Acento-sello (laton/oro): lacre premium que combina con el navy
-        brass:    '#B4924F',
-        brassdim: '#94763B',
+        // Acento coral/terracota de la marca Acento (del logo)
+        coral:    '#E2664B',
+        coraldim: '#C74E36',
         // Neutros
         paper:    '#F5F6F8',
         surface:  '#FFFFFF',

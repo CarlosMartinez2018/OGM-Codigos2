@@ -1,10 +1,10 @@
 // Componentes UI — lenguaje "consola de cumplimiento" AcentoPartners.
-// Marca navy #1C2445 + sello latón #B4924F. Tokens de máquina en mono.
+// Marca navy #1C2445 + acento coral #E2664B. Tokens de máquina en mono.
 
 export function Spinner({ className = '' }) {
   return (
     <span
-      className={`inline-block w-4 h-4 border-2 border-line border-t-brass rounded-full animate-spin ${className}`}
+      className={`inline-block w-4 h-4 border-2 border-line border-t-coral rounded-full animate-spin ${className}`}
       role="status"
       aria-label="Cargando"
     />
@@ -15,7 +15,7 @@ export function Spinner({ className = '' }) {
 export function Seal({ size = 34 }) {
   return (
     <div
-      className="grid place-items-center rounded-full bg-navy text-brass font-semibold ring-1 ring-brass/40 shrink-0"
+      className="grid place-items-center rounded-full bg-navy text-coral font-semibold ring-1 ring-coral/40 shrink-0"
       style={{ width: size, height: size, fontSize: size * 0.4 }}
       aria-hidden="true"
     >
@@ -48,8 +48,8 @@ export function Stamp({ tone = 'neutral', children }) {
 }
 
 // KPI tipo readout de terminal: número mono grande, etiqueta en versalitas, lomo latón.
-export function Kpi({ label, value, sub, tone = 'brass' }) {
-  const tick = tone === 'brass' ? 'border-brass' : tone === 'stop' ? 'border-stop' : 'border-navy'
+export function Kpi({ label, value, sub, tone = 'coral' }) {
+  const tick = tone === 'coral' ? 'border-coral' : tone === 'stop' ? 'border-stop' : 'border-navy'
   return (
     <div className={`card px-5 py-4 border-l-2 ${tick}`}>
       <p className="eyebrow">{label}</p>

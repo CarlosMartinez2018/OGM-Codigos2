@@ -30,7 +30,7 @@ function HealthDot() {
         <span>{up ? 'backend online' : health ? 'backend down' : 'checando…'}</span>
       </div>
       <div className="flex items-center gap-2">
-        <span className={`w-1.5 h-1.5 rounded-full ${llm ? 'bg-brass' : 'bg-white/20'}`} />
+        <span className={`w-1.5 h-1.5 rounded-full ${llm ? 'bg-coral' : 'bg-white/20'}`} />
         <span>{llm ? 'llm on' : 'llm off · reglas'}</span>
       </div>
     </div>
@@ -47,7 +47,7 @@ export default function Layout() {
             alt="Acento Real Estate Partners"
             className="w-full max-w-[180px] h-auto"
           />
-          <p className="text-[11px] text-brass font-mono tracking-wider mt-2.5">WAIVER · CONTROL</p>
+          <p className="text-[11px] text-coral font-mono tracking-wider mt-2.5">WAIVER · CONTROL</p>
         </div>
 
         <nav className="flex-1 p-3 space-y-0.5">
@@ -58,12 +58,12 @@ export default function Layout() {
               className={({ isActive }) =>
                 `group flex items-center gap-3 px-3 py-2 rounded-md text-sm transition-colors ${
                   isActive
-                    ? 'bg-white/10 text-white border-l-2 border-brass -ml-[2px] pl-[calc(0.75rem-2px)]'
+                    ? 'bg-white/10 text-white border-l-2 border-coral -ml-[2px] pl-[calc(0.75rem-2px)]'
                     : 'text-white/70 hover:text-white hover:bg-white/[0.06] border-l-2 border-transparent -ml-[2px] pl-[calc(0.75rem-2px)]'
                 }`
               }
             >
-              <span className="font-mono text-[11px] text-white/35 group-hover:text-brass w-5">{n.code}</span>
+              <span className="font-mono text-[11px] text-white/35 group-hover:text-coral w-5">{n.code}</span>
               <span className="font-medium">{n.label}</span>
             </NavLink>
           ))}

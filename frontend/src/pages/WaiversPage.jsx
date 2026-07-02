@@ -120,7 +120,7 @@ export default function WaiversPage() {
       <PageHeader
         title="Matriz de waivers"
         subtitle={`${data.total} combinaciones lender · waiver (knowledge base del clasificador).`}
-        actions={<button onClick={openNew} className="btn btn-brass">+ Nuevo waiver</button>}
+        actions={<button onClick={openNew} className="btn btn-coral">+ Nuevo waiver</button>}
       />
 
       <ErrorBox message={error} />
