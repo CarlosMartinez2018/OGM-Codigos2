@@ -42,9 +42,12 @@ export const emailsApi = {
   get: (id) => request(`/emails/${id}`),
 }
 
-// GET /reviews
+// GET /reviews(/{id}) · discard · answer
 export const reviewsApi = {
   list: (params = {}) => request(`/reviews${qs(params)}`),
+  get: (id) => request(`/reviews/${id}`),
+  discard: (id, note) => request(`/reviews/${id}/discard`, { method: 'POST', body: JSON.stringify({ note }) }),
+  answer: (id, note) => request(`/reviews/${id}/answer`, { method: 'POST', body: JSON.stringify({ note }) }),
 }
 
 // GET /classifications(/{id}) · POST /classify/run · approve · correct

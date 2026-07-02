@@ -52,6 +52,10 @@ class CorrectionIn(BaseModel):
     notes: Optional[str] = None
 
 
+class ReviewActionIn(BaseModel):
+    note: Optional[str] = None
+
+
 class WaiverIn(BaseModel):
     lender: str
     waiver_type: str
@@ -154,17 +158,44 @@ def _waiver_to_dict(row: LenderWaiverMatrix) -> dict[str, Any]:
     }
 
 
-def _review_to_dict(row: EmailReview) -> dict[str, Any]:
+# Etiqueta friendly por stage (unifica lender_nuevo + lender_por_aprobar).
+_STAGE_LABELS = {
+    "blacklist": "Blacklist",
+    "lender_nuevo": "Lender por aprobar",
+    "lender_por_aprobar": "Lender por aprobar",
+    "hilo_incompleto": "Hilo incompleto",
+    "reenvio": "Reenvío",
+    "seguridad_bloqueo": "Seguridad / bloqueo",
+    "duplicado": "Misma conversación",
+}
+
+
+def _review_dict(row: EmailReview, email: Optional[ProductionEmail]) -> dict[str, Any]:
+    domain = (email.sender_domain if email else "") or ""
+    internal = domain.lower() in {d.lower() for d in settings.internal_domains}
+    stage_label = _STAGE_LABELS.get(row.stage, row.stage)
+    if row.stage == "reenvio" and internal:
+        stage_label = "Reenvío interno"
     return {
         "id": row.id,
         "message_id": row.message_id,
+        "conversation_id": row.conversation_id,
         "case_id": row.case_id,
         "stage": row.stage,
+        "stage_label": stage_label,
         "reason": row.reason,
         "detected_original_sender": row.detected_original_sender,
         "status": row.status,
+        "note": row.note,
         "created_at": row.created_at.isoformat() if row.created_at else None,
         "resolved_at": row.resolved_at.isoformat() if row.resolved_at else None,
+        # Metadatos del correo (join) — dominio siempre aunque falte remitente.
+        "sender": email.sender if email else None,
+        "sender_domain": domain or None,
+        "subject": email.subject if email else None,
+        "received_date": (email.received_date.isoformat() if email and email.received_date else None),
+        "internal_forward": internal,
+        "production_email_id": row.production_email_id,
     }
 
 
@@ -352,21 +383,95 @@ async def get_email(
 
 @app.get("/api/v1/reviews")
 async def list_reviews(
-    stage: Optional[str] = None,
-    status: str = Query(default="PENDIENTE", description="PENDIENTE|GESTIONADO"),
-    limit: int = Query(default=100, ge=1, le=500),
+    stage: Optional[str] = Query(default=None, description="uno o varios stages, separados por coma"),
+    status: str = Query(default="PENDIENTE", description="uno o varios, separados por coma"),
+    limit: int = Query(default=200, ge=1, le=500),
     offset: int = Query(default=0, ge=0),
     session: AsyncSession = Depends(get_session),
 ) -> dict[str, Any]:
-    stmt = select(EmailReview).order_by(EmailReview.created_at.desc().nullslast())
+    stmt = (
+        select(EmailReview, ProductionEmail)
+        .join(ProductionEmail, EmailReview.production_email_id == ProductionEmail.id, isouter=True)
+        .order_by(EmailReview.created_at.desc().nullslast())
+    )
     if status:
-        stmt = stmt.where(EmailReview.status == status.upper())
+        statuses = [s.strip().upper() for s in status.split(",") if s.strip()]
+        stmt = stmt.where(EmailReview.status.in_(statuses))
     if stage:
-        stmt = stmt.where(EmailReview.stage == stage)
+        stages = [s.strip() for s in stage.split(",") if s.strip()]
+        stmt = stmt.where(EmailReview.stage.in_(stages))
     total = await session.scalar(select(func.count()).select_from(stmt.subquery())) or 0
-    rows = (await session.scalars(stmt.limit(limit).offset(offset))).all()
+    rows = (await session.execute(stmt.limit(limit).offset(offset))).all()
     return {"total": total, "limit": limit, "offset": offset,
-            "items": [_review_to_dict(r) for r in rows]}
+            "items": [_review_dict(rev, pe) for rev, pe in rows]}
+
+
+@app.get("/api/v1/reviews/{review_id}")
+async def get_review(
+    review_id: int,
+    session: AsyncSession = Depends(get_session),
+) -> dict[str, Any]:
+    rev = await session.get(EmailReview, review_id)
+    if rev is None:
+        raise HTTPException(404, "Review no encontrada")
+    pe = await session.get(ProductionEmail, rev.production_email_id) if rev.production_email_id else None
+    data = _review_dict(rev, pe)
+    if pe is not None:
+        data["email"] = _email_detail_dict(pe)
+
+    # Hilo de la conversacion: todos los correos con el mismo case_id/conversation_id.
+    key = rev.case_id or rev.conversation_id or (pe.case_id if pe else "") or (pe.conversation_id if pe else "")
+    thread: list[dict[str, Any]] = []
+    if key:
+        t_rows = (await session.scalars(
+            select(ProductionEmail)
+            .where((ProductionEmail.case_id == key) | (ProductionEmail.conversation_id == key))
+            .order_by(ProductionEmail.received_date.asc().nullsfirst())
+        )).all()
+        thread = [
+            {
+                "id": e.id,
+                "sender": e.sender,
+                "sender_domain": e.sender_domain,
+                "subject": e.subject,
+                "received_date": e.received_date.isoformat() if e.received_date else None,
+                "body_preview": e.body_preview,
+                "is_current": pe is not None and e.id == pe.id,
+            }
+            for e in t_rows
+        ]
+    data["thread"] = thread
+    return data
+
+
+async def _resolve_review(session: AsyncSession, review_id: int, status: str, note: Optional[str]) -> dict[str, Any]:
+    rev = await session.get(EmailReview, review_id)
+    if rev is None:
+        raise HTTPException(404, "Review no encontrada")
+    rev.status = status
+    rev.note = note
+    rev.resolved_at = datetime.now(timezone.utc)
+    await session.commit()
+    pe = await session.get(ProductionEmail, rev.production_email_id) if rev.production_email_id else None
+    return _review_dict(rev, pe)
+
+
+@app.post("/api/v1/reviews/{review_id}/discard")
+async def discard_review(
+    review_id: int,
+    body: ReviewActionIn,
+    session: AsyncSession = Depends(get_session),
+) -> dict[str, Any]:
+    return await _resolve_review(session, review_id, "DESCARTADO", body.note)
+
+
+@app.post("/api/v1/reviews/{review_id}/answer")
+async def answer_review(
+    review_id: int,
+    body: ReviewActionIn,
+    session: AsyncSession = Depends(get_session),
+) -> dict[str, Any]:
+    return await _resolve_review(session, review_id, "CONTESTADO", body.note)
 
 
 # ---------------------------------------------------------------------------

@@ -24,6 +24,7 @@ _ADDITIVE_COLUMNS = [
     "ALTER TABLE email_classifications ADD COLUMN IF NOT EXISTS corrected_lender VARCHAR(200)",
     "ALTER TABLE email_classifications ADD COLUMN IF NOT EXISTS corrected_waiver_type VARCHAR(200)",
     "ALTER TABLE email_classifications ADD COLUMN IF NOT EXISTS correction_notes TEXT",
+    "ALTER TABLE email_reviews ADD COLUMN IF NOT EXISTS note TEXT",
 ]
 
 

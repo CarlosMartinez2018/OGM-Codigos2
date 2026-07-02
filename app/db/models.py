@@ -186,7 +186,9 @@ class EmailReview(Base):
     stage: Mapped[str] = mapped_column(String(40), nullable=False)
     reason: Mapped[str] = mapped_column(Text, default="")
     detected_original_sender: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    # PENDIENTE | GESTIONADO (auto, aprobacion) | DESCARTADO | CONTESTADO (manual)
     status: Mapped[str] = mapped_column(String(20), default="PENDIENTE")
+    note: Mapped[str | None] = mapped_column(Text, nullable=True)  # nota de descarte/respuesta manual
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)
     )

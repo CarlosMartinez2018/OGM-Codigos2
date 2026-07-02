@@ -83,10 +83,26 @@ def gate_threads(email: EmailData, kb: dict[str, Any]) -> Optional[PreflightResu
         return None
     # Remitente interno / no-lender que llego hasta aca -> revision.
     orig = _extract_original_sender(email.body_text)
+    domain = _sender_domain(email)
     if _is_forward(email):
-        reason = "Reenvio: la solicitud no llega directa del lender al buzon."
+        if domain in settings.internal_domains:
+            reason = (
+                f"Reenvio interno: enviado desde un dominio interno ({domain}); "
+                "es un reenvio del equipo Acento/Captive, no una solicitud directa "
+                "del lender al buzon."
+            )
+        else:
+            reason = (
+                "Reenvio: la solicitud llega reenviada, no directa del lender al "
+                "buzon; no se puede confirmar el remitente original del hilo."
+            )
         return PreflightResult(False, "reenvio", reason, detected_original_sender=orig)
-    reason = "Hilo sin origen de lender en el buzon."
+    reason = (
+        "Hilo incompleto: no existe en el buzon el correo original del lender para "
+        "esta conversacion, asi que no se puede identificar el lender ni el contexto "
+        "del requerimiento. Falta el mensaje raiz del hilo; revisar manualmente y, si "
+        "aplica, ubicar el correo original o responder desde el hilo correcto."
+    )
     return PreflightResult(False, "hilo_incompleto", reason, detected_original_sender=orig)
 
 
