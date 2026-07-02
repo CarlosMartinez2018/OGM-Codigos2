@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
 import { reviewsApi } from '../lib/api'
-import { Badge, Spinner, ErrorBox } from '../components/ui'
+import { Stamp, PageHeader, Loading, Empty, ErrorBox } from '../components/ui'
 
 const STAGES = [
   'blacklist', 'lender_nuevo', 'lender_por_aprobar',
@@ -13,9 +13,9 @@ export default function ReviewsPage() {
   const [error, setError] = useState('')
   const [stage, setStage] = useState('')
 
-  const load = useCallback((stageFilter) => {
+  const load = useCallback((s) => {
     setLoading(true)
-    reviewsApi.list({ limit: 200, status: 'PENDIENTE', stage: stageFilter })
+    reviewsApi.list({ limit: 200, status: 'PENDIENTE', stage: s })
       .then(setData)
       .catch((e) => setError(e.message))
       .finally(() => setLoading(false))
@@ -24,52 +24,54 @@ export default function ReviewsPage() {
   useEffect(() => { load('') }, [load])
 
   return (
-    <div className="p-6 space-y-4">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-xl font-bold text-slate-900">Cola de revisión</h1>
-          <p className="text-sm text-slate-500 mt-0.5">
-            {data.total} correos PENDIENTE (descartados por el preflight).
-          </p>
-        </div>
-        <select
-          value={stage}
-          onChange={(e) => { setStage(e.target.value); load(e.target.value) }}
-          className="px-3 py-2 rounded-lg border border-slate-200 text-sm"
-        >
-          <option value="">Todas las etapas</option>
-          {STAGES.map((s) => <option key={s} value={s}>{s}</option>)}
-        </select>
-      </div>
+    <div className="p-8 space-y-6 max-w-6xl">
+      <PageHeader
+        title="Cola de revisión"
+        subtitle={`${data.total} correos pendientes — descartados por el pre-filtrado.`}
+        actions={
+          <select
+            value={stage}
+            onChange={(e) => { setStage(e.target.value); load(e.target.value) }}
+            className="field"
+          >
+            <option value="">Todas las etapas</option>
+            {STAGES.map((s) => <option key={s} value={s}>{s}</option>)}
+          </select>
+        }
+      />
 
       <ErrorBox message={error} />
 
       {loading ? (
-        <div className="flex items-center gap-2 text-slate-400"><Spinner /> Cargando…</div>
+        <Loading />
       ) : (
-        <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
-          <table className="w-full text-sm">
-            <thead className="bg-slate-50 text-slate-500 text-xs uppercase">
+        <div className="card overflow-hidden">
+          <table className="ledger">
+            <thead>
               <tr>
-                <th className="text-left px-4 py-2 font-semibold">Etapa</th>
-                <th className="text-left px-4 py-2 font-semibold">Motivo</th>
-                <th className="text-left px-4 py-2 font-semibold">Remitente orig.</th>
-                <th className="text-left px-4 py-2 font-semibold">Creado</th>
+                <th>Etapa</th>
+                <th>Motivo</th>
+                <th>Remitente original</th>
+                <th className="text-right">Creado</th>
               </tr>
             </thead>
             <tbody>
               {data.items.map((r) => (
-                <tr key={r.id} className="border-t border-slate-100 hover:bg-slate-50">
-                  <td className="px-4 py-2"><Badge tone="PENDIENTE">{r.stage}</Badge></td>
-                  <td className="px-4 py-2 text-slate-600 max-w-lg truncate" title={r.reason}>{r.reason}</td>
-                  <td className="px-4 py-2 text-slate-500">{r.detected_original_sender || '—'}</td>
-                  <td className="px-4 py-2 text-slate-500 whitespace-nowrap">
+                <tr key={r.id}>
+                  <td><Stamp tone="warn">{r.stage}</Stamp></td>
+                  <td className="text-muted max-w-lg truncate" title={r.reason}>{r.reason}</td>
+                  <td>
+                    {r.detected_original_sender
+                      ? <span className="token">{r.detected_original_sender}</span>
+                      : <span className="text-faint">—</span>}
+                  </td>
+                  <td className="text-right font-mono text-xs text-muted whitespace-nowrap tnum">
                     {r.created_at ? r.created_at.slice(0, 10) : '—'}
                   </td>
                 </tr>
               ))}
               {data.items.length === 0 && (
-                <tr><td colSpan={4} className="px-4 py-6 text-center text-slate-400">Cola vacía.</td></tr>
+                <tr><td colSpan={4}><Empty>Cola vacía.</Empty></td></tr>
               )}
             </tbody>
           </table>

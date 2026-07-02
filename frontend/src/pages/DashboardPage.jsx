@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
 import { metaApi, classificationsApi } from '../lib/api'
-import { Kpi, Bar, Spinner, ErrorBox } from '../components/ui'
+import { Kpi, Bar, Card, PageHeader, Spinner, Loading, Empty, ErrorBox } from '../components/ui'
 
 export default function DashboardPage() {
   const [stats, setStats] = useState(null)
@@ -42,73 +42,75 @@ export default function DashboardPage() {
   const totalCls = stats?.total_classified ?? 0
 
   return (
-    <div className="p-6 space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-xl font-bold text-slate-900">Dashboard</h1>
-          <p className="text-sm text-slate-500 mt-0.5">Actividad del pipeline de clasificación.</p>
-        </div>
-        <button
-          onClick={runClassification}
-          disabled={running}
-          className="px-4 py-2 rounded-lg bg-blue-600 text-white text-sm font-medium hover:bg-blue-700 disabled:opacity-50 flex items-center gap-2"
-        >
-          {running && <Spinner />} Clasificar pendientes
-        </button>
-      </div>
+    <div className="p-8 space-y-7 max-w-6xl">
+      <PageHeader
+        title="Panel de control"
+        subtitle="Actividad del pipeline de clasificación de waivers."
+        actions={
+          <button onClick={runClassification} disabled={running} className="btn btn-primary">
+            {running && <Spinner className="border-white/40 border-t-white" />}
+            Clasificar pendientes
+          </button>
+        }
+      />
 
       <ErrorBox message={error} />
 
       {loading ? (
-        <div className="flex items-center gap-2 text-slate-400"><Spinner /> Cargando…</div>
+        <Loading />
       ) : (
         <>
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-            <Kpi label="Correos" value={stats?.total_emails ?? 0} sub="en production_emails" />
-            <Kpi label="Clasificados" value={totalCls} sub="sobrevivientes del preflight" />
-            <Kpi label="Confianza prom." value={stats?.avg_confidence != null ? `${Math.round(stats.avg_confidence * 100)}%` : '—'} />
-            <Kpi label="En revisión" value={pendingReviews} sub="cola email_reviews (PENDIENTE)" />
+            <Kpi label="Correos" value={stats?.total_emails ?? 0} sub="en bandeja de producción" />
+            <Kpi label="Clasificados" value={totalCls} sub="sobrevivientes del pre-filtrado" />
+            <Kpi
+              label="Confianza media"
+              value={stats?.avg_confidence != null ? `${Math.round(stats.avg_confidence * 100)}%` : '—'}
+            />
+            <Kpi
+              label="En revisión"
+              value={pendingReviews}
+              sub="cola manual pendiente"
+              tone={pendingReviews > 0 ? 'stop' : 'brass'}
+            />
           </div>
 
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <section className="bg-white rounded-xl border border-slate-200 p-5">
-              <h2 className="text-sm font-semibold text-slate-800 mb-4">Clasificaciones por lender</h2>
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+            <Card title="Clasificaciones por lender">
               {byLender.length === 0 ? (
-                <p className="text-sm text-slate-400">Sin datos aún.</p>
+                <Empty>Sin datos de clasificación aún.</Empty>
               ) : (
                 <div className="space-y-3">
                   {byLender.map(([name, count]) => (
-                    <Bar key={name} label={name} count={count} total={totalCls} color="bg-blue-600" />
+                    <Bar key={name} label={name} count={count} total={totalCls} />
                   ))}
                 </div>
               )}
-            </section>
+            </Card>
 
-            <section className="bg-white rounded-xl border border-slate-200 p-5">
-              <h2 className="text-sm font-semibold text-slate-800 mb-4">Cola de revisión por etapa</h2>
+            <Card title="Cola de revisión por etapa">
               {byStage.length === 0 ? (
-                <p className="text-sm text-slate-400">Cola vacía.</p>
+                <Empty>Cola vacía.</Empty>
               ) : (
                 <div className="space-y-3">
                   {byStage.map(([stage, count]) => (
-                    <Bar key={stage} label={stage} count={count} total={pendingReviews} color="bg-amber-500" />
+                    <Bar key={stage} label={stage} count={count} total={pendingReviews} mono />
                   ))}
                 </div>
               )}
-            </section>
+            </Card>
           </div>
 
-          <section className="bg-white rounded-xl border border-slate-200 p-5">
-            <h2 className="text-sm font-semibold text-slate-800 mb-4">Lenders por estado</h2>
-            <div className="flex flex-wrap gap-6">
+          <Card title="Lenders por estado">
+            <div className="grid grid-cols-3 divide-x divide-line">
               {byStatus.map(([status, count]) => (
-                <div key={status}>
-                  <p className="text-2xl font-bold text-slate-900">{count}</p>
-                  <p className="text-xs text-slate-400">{status}</p>
+                <div key={status} className="px-4 first:pl-0">
+                  <p className="text-3xl font-mono font-medium text-navy tnum">{count}</p>
+                  <p className="eyebrow mt-1.5">{status}</p>
                 </div>
               ))}
             </div>
-          </section>
+          </Card>
         </>
       )}
     </div>
