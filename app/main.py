@@ -262,6 +262,13 @@ async def health(session: AsyncSession = Depends(get_session)) -> dict[str, Any]
     }
 
 
+@app.get("/api/v1/business-context")
+async def business_context() -> dict[str, Any]:
+    """Contexto de negocio de Acento (activo; aun no cableado al clasificador)."""
+    from app.core.business_context import load_business_context
+    return load_business_context()
+
+
 @app.get("/api/v1/stats")
 async def stats(session: AsyncSession = Depends(get_session)) -> dict[str, Any]:
     total_emails = await session.scalar(select(func.count(ProductionEmail.id))) or 0
