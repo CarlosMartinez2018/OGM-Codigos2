@@ -6,6 +6,7 @@ import ClassificationsPage from './pages/ClassificationsPage'
 import ReviewsPage from './pages/ReviewsPage'
 import LendersPage from './pages/LendersPage'
 import WaiversPage from './pages/WaiversPage'
+import SharepointPage from './pages/SharepointPage'
 
 export default function App() {
   return (
@@ -19,6 +20,7 @@ export default function App() {
           <Route path="reviews" element={<ReviewsPage />} />
           <Route path="lenders" element={<LendersPage />} />
           <Route path="waivers" element={<WaiversPage />} />
+          <Route path="sharepoint" element={<SharepointPage />} />
         </Route>
       </Routes>
     </BrowserRouter>

@@ -62,6 +62,14 @@ export const classificationsApi = {
     request(`/classifications/${id}/correct`, { method: 'POST', body: JSON.stringify(payload) }),
 }
 
+// SharePoint (inventario)
+export const sharepointApi = {
+  status: () => request('/sharepoint/status'),
+  drives: () => request('/sharepoint/drives'),
+  list: (params = {}) => request(`/sharepoint/files${qs(params)}`),
+  sync: () => request('/sharepoint/sync', { method: 'POST' }),
+}
+
 // Matriz lender-waiver (CRUD)
 export const waiversApi = {
   list: (params = {}) => request(`/waivers${qs(params)}`),

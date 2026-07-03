@@ -41,6 +41,11 @@ class Settings(BaseSettings):
     # Attachment finder: raiz donde se buscan PDFs por lender para adjuntar
     document_base_path: str = "./documentos"
 
+    # SharePoint (usa las mismas credenciales Azure de arriba; requiere permiso
+    # Graph Sites.Read.All + admin consent). Ajustar al sitio real de Acento en .env.
+    sharepoint_hostname: str = "finesa.sharepoint.com"
+    sharepoint_site_path: str = "/sites/AndexInsurance"
+
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
 
     @field_validator("debug", mode="before")

@@ -199,3 +199,30 @@ class EmailReview(Base):
     __table_args__ = (
         UniqueConstraint("message_id", "stage", name="uq_review_message_stage"),
     )
+
+
+# ---------------------------------------------------------------------------
+# Inventario de archivos de SharePoint (Microsoft Graph)
+# ---------------------------------------------------------------------------
+
+class SharePointFile(Base):
+    __tablename__ = "sharepoint_files"
+
+    id: Mapped[str] = mapped_column(String(255), primary_key=True)  # driveItem id de Graph
+    drive_id: Mapped[str] = mapped_column(String(255), nullable=False, index=True)
+    drive_name: Mapped[str] = mapped_column(String(255), nullable=False, index=True)
+    name: Mapped[str] = mapped_column(String(500), nullable=False, index=True)
+    path: Mapped[str] = mapped_column(Text, nullable=False)
+    parent_path: Mapped[str | None] = mapped_column(Text, nullable=True)
+    is_folder: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    size: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    mime_type: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    file_extension: Mapped[str | None] = mapped_column(String(20), nullable=True, index=True)
+    web_url: Mapped[str | None] = mapped_column(Text, nullable=True)
+    sp_created_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    sp_modified_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    last_synced_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        default=lambda: datetime.now(timezone.utc),
+        onupdate=lambda: datetime.now(timezone.utc),
+    )

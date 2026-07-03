@@ -16,10 +16,12 @@ de OGM_Lenders para minimizar retrabajo de UI.
 """
 from __future__ import annotations
 
+import time
 from contextlib import asynccontextmanager
 from datetime import datetime, timezone
 from typing import Any, AsyncIterator, Optional
 
+import httpx
 from fastapi import Depends, FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
@@ -36,9 +38,11 @@ from app.db.models import (
     LenderWaiverDocument,
     LenderWaiverMatrix,
     ProductionEmail,
+    SharePointFile,
 )
 from app.services import lender_approval
 from app.services.llm_classifier import classifier
+from app.services.sharepoint.connector import sharepoint
 
 
 # ---------------------------------------------------------------------------
@@ -254,6 +258,7 @@ async def health(session: AsyncSession = Depends(get_session)) -> dict[str, Any]
             "model": settings.ollama_model,
             "base_url": settings.ollama_base_url,
         },
+        "sharepoint": {"configured": sharepoint.is_configured},
     }
 
 
@@ -723,3 +728,108 @@ async def delete_waiver(
         raise HTTPException(404, "Waiver no encontrado")
     await session.delete(row)
     await session.commit()
+
+
+# ---------------------------------------------------------------------------
+# SharePoint (inventario de archivos via Microsoft Graph)
+# ---------------------------------------------------------------------------
+
+def _sp_file_to_dict(row: SharePointFile) -> dict[str, Any]:
+    return {
+        "id": row.id,
+        "drive_name": row.drive_name,
+        "name": row.name,
+        "path": row.path,
+        "is_folder": row.is_folder,
+        "size": row.size,
+        "file_extension": row.file_extension,
+        "web_url": row.web_url,
+        "sp_modified_at": row.sp_modified_at.isoformat() if row.sp_modified_at else None,
+        "last_synced_at": row.last_synced_at.isoformat() if row.last_synced_at else None,
+    }
+
+
+@app.get("/api/v1/sharepoint/status")
+async def sharepoint_status() -> dict[str, Any]:
+    return await sharepoint.test_connection()
+
+
+@app.post("/api/v1/sharepoint/sync")
+async def sharepoint_sync(session: AsyncSession = Depends(get_session)) -> dict[str, Any]:
+    """Recorre cada drive del sitio configurado y hace upsert de metadatos."""
+    if not sharepoint.is_configured:
+        raise HTTPException(400, "SharePoint no configurado. Define AZURE_* y SHAREPOINT_* en .env")
+
+    start = time.perf_counter()
+    seen = added = updated = 0
+    drive_names: list[str] = []
+    async with httpx.AsyncClient() as client:
+        try:
+            drives = await sharepoint.list_drives(client)
+        except ConnectionError as e:
+            raise HTTPException(502, str(e))
+        for d in drives:
+            drive_id, drive_name = d["id"], d.get("name", "(sin nombre)")
+            drive_names.append(drive_name)
+            async for sp in sharepoint.walk_drive(client, drive_id, drive_name):
+                seen += 1
+                existed = await session.get(SharePointFile, sp.id)
+                if existed is None:
+                    session.add(SharePointFile(
+                        id=sp.id, drive_id=sp.drive_id, drive_name=sp.drive_name,
+                        name=sp.name, path=sp.path, parent_path=sp.parent_path,
+                        is_folder=sp.is_folder, size=sp.size, mime_type=sp.mime_type,
+                        file_extension=sp.file_extension, web_url=sp.web_url,
+                        sp_created_at=sp.sp_created_at, sp_modified_at=sp.sp_modified_at,
+                    ))
+                    added += 1
+                else:
+                    for attr in ("drive_name", "name", "path", "parent_path", "is_folder",
+                                 "size", "mime_type", "file_extension", "web_url",
+                                 "sp_created_at", "sp_modified_at"):
+                        setattr(existed, attr, getattr(sp, attr))
+                    updated += 1
+                if seen % 200 == 0:
+                    await session.commit()
+    await session.commit()
+    return {"drives": drive_names, "items_seen": seen, "files_added": added,
+            "files_updated": updated, "took_seconds": round(time.perf_counter() - start, 2)}
+
+
+@app.get("/api/v1/sharepoint/drives")
+async def sharepoint_drives(session: AsyncSession = Depends(get_session)) -> dict[str, Any]:
+    names = [r[0] for r in (await session.execute(
+        select(SharePointFile.drive_name).group_by(SharePointFile.drive_name)
+        .order_by(SharePointFile.drive_name)
+    )).all()]
+    out = []
+    for n in names:
+        files = await session.scalar(select(func.count(SharePointFile.id)).where(
+            SharePointFile.drive_name == n, SharePointFile.is_folder.is_(False)))
+        out.append({"drive_name": n, "files": files or 0})
+    return {"total": len(out), "items": out}
+
+
+@app.get("/api/v1/sharepoint/files")
+async def sharepoint_files(
+    q: Optional[str] = Query(None, description="filtra por nombre o ruta (ILIKE)"),
+    drive: Optional[str] = None,
+    only_files: bool = Query(True),
+    limit: int = Query(200, ge=1, le=1000),
+    offset: int = Query(0, ge=0),
+    session: AsyncSession = Depends(get_session),
+) -> dict[str, Any]:
+    stmt = select(SharePointFile)
+    if only_files:
+        stmt = stmt.where(SharePointFile.is_folder.is_(False))
+    if drive:
+        stmt = stmt.where(SharePointFile.drive_name == drive)
+    if q:
+        like = f"%{q}%"
+        stmt = stmt.where(SharePointFile.name.ilike(like) | SharePointFile.path.ilike(like))
+    total = await session.scalar(select(func.count()).select_from(stmt.subquery())) or 0
+    rows = (await session.scalars(
+        stmt.order_by(SharePointFile.drive_name, SharePointFile.path).limit(limit).offset(offset)
+    )).all()
+    return {"total": total, "limit": limit, "offset": offset,
+            "items": [_sp_file_to_dict(r) for r in rows]}
