@@ -1,0 +1,27 @@
+{
+  "_doc": "Gold set de evaluacion. BORRADOR pre-llenado desde subject+dominio+KB. VERIFICAR a mano: revisar cada item, corregir expected_lender/expected_waiver_type y poner verified=true. La idea es complementar con mas correos y con las respuestas que se dieron.",
+  "_schema": "match por training_email_id; expected_* = etiqueta humana correcta; verified=true cuando un humano lo confirmo.",
+  "items": [
+    {"training_email_id": 1, "sender_domain": "jll.com", "subject": "Waiver Request - A&B Sublimit Deficiency - Maple Ridge",
+     "expected_lender": "JLL (Insurance Servicing)", "expected_waiver_type": "Assault & Battery (A&B) sublimit", "verified": false, "notes": ""},
+    {"training_email_id": 2, "sender_domain": "am.jll.com", "subject": "RE: Sexual Abuse & Molestation Coverage - Sunset Gardens",
+     "expected_lender": "JLL (Insurance Servicing)", "expected_waiver_type": "Sexual Abuse & Molestation (SAM)", "verified": false, "notes": ""},
+    {"training_email_id": 3, "sender_domain": "jll.com", "subject": "Equipment Breakdown Limit Deficiency - Industrial Park East",
+     "expected_lender": "JLL (Insurance Servicing)", "expected_waiver_type": "Equipment Breakdown (EB) limit", "verified": false, "notes": ""},
+    {"training_email_id": 4, "sender_domain": "capitalone.com", "subject": "NON-COMPLIANCE NOTICE - Full Policy Documents Required",
+     "expected_lender": "Capital One (Servicing)", "expected_waiver_type": "Full Policy Package timing", "verified": false, "notes": ""},
+    {"training_email_id": 5, "sender_domain": "jll.com", "subject": "Freddie Mac Wording Deficiency - Heritage Plaza Loan",
+     "expected_lender": "Freddie Mac (via JLL Real Estate Capital)", "expected_waiver_type": "Additional Insured/Mortgagee wording", "verified": false,
+     "notes": "AMBIGUO: viene de jll.com pero el requisito es de Freddie Mac. Confirmar si el lender correcto es Freddie Mac o JLL segun negocio."},
+    {"training_email_id": 6, "sender_domain": "grandbridge.com", "subject": "OL/BI Structure Review - Gateway Office Complex - KeyBank",
+     "expected_lender": "Grandbridge / KeyBank / Wells Fargo Trustee chain", "expected_waiver_type": "OL / BI / EPI specifics", "verified": false, "notes": ""},
+    {"training_email_id": 7, "sender_domain": "berkadia.com", "subject": "Invoice Clarification Needed - Terrorism/Excess Components",
+     "expected_lender": "Berkadia", "expected_waiver_type": "Invoice components (Excess/Terrorism) & Address", "verified": false, "notes": ""},
+    {"training_email_id": 8, "sender_domain": "nmrk.com", "subject": "Address Correction & Excess Line Items - Parkview Towers",
+     "expected_lender": "NEWMARK (MCM Servicing)", "expected_waiver_type": "Address / Excess lines", "verified": false, "notes": ""},
+    {"training_email_id": 9, "sender_domain": "greystone.com", "subject": "ACORD 25/28 Required Before Payment Release - Marina Bay",
+     "expected_lender": "Greystone", "expected_waiver_type": "ACORD-gate for payment & Umbrella clarity", "verified": false, "notes": ""},
+    {"training_email_id": 10, "sender_domain": "jll.com", "subject": "Security Assessment Request - A&B Coverage Waiver - Pine Creek",
+     "expected_lender": "JLL (Insurance Servicing)", "expected_waiver_type": "Assault & Battery (A&B) sublimit", "verified": false, "notes": ""}
+  ]
+}
