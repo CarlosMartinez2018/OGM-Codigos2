@@ -25,7 +25,7 @@ import httpx
 from fastapi import Depends, FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
-from sqlalchemy import delete, func, select, update
+from sqlalchemy import delete, func, or_, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -833,3 +833,94 @@ async def sharepoint_files(
     )).all()
     return {"total": total, "limit": limit, "offset": offset,
             "items": [_sp_file_to_dict(r) for r in rows]}
+
+
+# ---------------------------------------------------------------------------
+# Comparacion: documentos esperados (BD) vs archivos en SharePoint
+# ---------------------------------------------------------------------------
+
+async def _match_documents(session: AsyncSession, docs: list[str]) -> list[dict[str, Any]]:
+    """Para cada documento esperado busca por NOMBRE EXACTO en SharePoint.
+
+    'Exacto' = el nombre del archivo (sin extension) es igual al nombre del
+    documento (case-insensitive). Si no aparece -> found=False (no encontrado).
+    """
+    result: list[dict[str, Any]] = []
+    for doc in docs:
+        d = (doc or "").strip()
+        if not d:
+            continue
+        low = d.lower()
+        stmt = (
+            select(SharePointFile)
+            .where(SharePointFile.is_folder.is_(False))
+            .where(or_(
+                func.lower(SharePointFile.name) == low,          # sin extension
+                func.lower(SharePointFile.name).like(low + ".%"),  # nombre.ext exacto
+            ))
+            .limit(10)
+        )
+        files = (await session.scalars(stmt)).all()
+        result.append({
+            "document": d,
+            "found": len(files) > 0,
+            "matches": [
+                {"name": f.name, "drive_name": f.drive_name, "web_url": f.web_url}
+                for f in files
+            ],
+        })
+    return result
+
+
+@app.get("/api/v1/classifications/{classification_id}/documents")
+async def classification_documents(
+    classification_id: int,
+    session: AsyncSession = Depends(get_session),
+) -> dict[str, Any]:
+    row = await session.get(EmailClassification, classification_id)
+    if row is None:
+        raise HTTPException(404, "Clasificacion no encontrada")
+
+    # Docs esperados: de la matriz actual (autoritativa/normalizada); fallback al guardado.
+    matrix = await session.scalar(
+        select(LenderWaiverMatrix)
+        .options(selectinload(LenderWaiverMatrix.documents))
+        .where(LenderWaiverMatrix.lender == row.lender)
+        .where(LenderWaiverMatrix.waiver_type == row.waiver_type)
+    )
+    if matrix is not None:
+        docs = [d.document_name for d in sorted(matrix.documents, key=lambda d: d.position)]
+    else:
+        docs = list(row.documents_expected or [])
+
+    items = await _match_documents(session, docs)
+    found = sum(1 for it in items if it["found"])
+    return {
+        "lender": row.lender,
+        "waiver_type": row.waiver_type,
+        "total": len(items),
+        "found": found,
+        "missing": len(items) - found,
+        "documents": items,
+    }
+
+
+@app.get("/api/v1/documents/match")
+async def documents_match(
+    lender: str = Query(...),
+    waiver_type: str = Query(...),
+    session: AsyncSession = Depends(get_session),
+) -> dict[str, Any]:
+    matrix = await session.scalar(
+        select(LenderWaiverMatrix)
+        .options(selectinload(LenderWaiverMatrix.documents))
+        .where(LenderWaiverMatrix.lender == lender)
+        .where(LenderWaiverMatrix.waiver_type == waiver_type)
+    )
+    if matrix is None:
+        raise HTTPException(404, "No hay combinacion lender+waiver en la matriz")
+    docs = [d.document_name for d in sorted(matrix.documents, key=lambda d: d.position)]
+    items = await _match_documents(session, docs)
+    found = sum(1 for it in items if it["found"])
+    return {"lender": lender, "waiver_type": waiver_type, "total": len(items),
+            "found": found, "missing": len(items) - found, "documents": items}

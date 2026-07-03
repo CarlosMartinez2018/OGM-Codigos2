@@ -54,6 +54,7 @@ export const reviewsApi = {
 export const classificationsApi = {
   list: (params = {}) => request(`/classifications${qs(params)}`),
   get: (id) => request(`/classifications/${id}`),
+  documents: (id) => request(`/classifications/${id}/documents`),
   run: (limit = 0, reclassify = false) =>
     request(`/classify/run${qs({ limit, reclassify })}`, { method: 'POST' }),
   approve: (id, reviewedBy = 'operator') =>

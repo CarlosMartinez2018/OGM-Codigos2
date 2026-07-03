@@ -85,11 +85,14 @@ function ClassificationDrawer({ id, open, onClose, onChanged, onCorrect }) {
   const [data, setData] = useState(null)
   const [loading, setLoading] = useState(false)
   const [approving, setApproving] = useState(false)
+  const [docs, setDocs] = useState(null)
 
   const load = useCallback(() => {
     if (!id) return
     setLoading(true)
+    setDocs(null)
     classificationsApi.get(id).then(setData).catch(() => setData(null)).finally(() => setLoading(false))
+    classificationsApi.documents(id).then(setDocs).catch(() => setDocs(null))
   }, [id])
 
   useEffect(() => { if (open) load() }, [open, load])
@@ -154,6 +157,30 @@ function ClassificationDrawer({ id, open, onClose, onChanged, onCorrect }) {
                   </div>
                 )}
               </div>
+            </DetailBlock>
+          )}
+
+          {/* Documentos esperados vs SharePoint (match exacto) */}
+          {docs && (
+            <DetailBlock title={`Documentos en SharePoint — ${docs.found}/${docs.total} encontrados`}>
+              {docs.documents.length === 0 ? (
+                <p className="text-sm text-muted">Sin documentos esperados para este waiver.</p>
+              ) : (
+                <ul className="space-y-1.5">
+                  {docs.documents.map((d) => (
+                    <li key={d.document} className="flex items-center justify-between gap-3 text-sm">
+                      <span className="text-ink">{d.document}</span>
+                      {d.found ? (
+                        d.matches[0]?.web_url
+                          ? <a href={d.matches[0].web_url} target="_blank" rel="noreferrer"><Stamp tone="ok">encontrado</Stamp></a>
+                          : <Stamp tone="ok">encontrado</Stamp>
+                      ) : (
+                        <Stamp tone="stop">no encontrado</Stamp>
+                      )}
+                    </li>
+                  ))}
+                </ul>
+              )}
             </DetailBlock>
           )}
 
