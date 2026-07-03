@@ -15,6 +15,11 @@ import re
 
 _ACORD_HEAD = re.compile(r"^ACORD\b\s*(.*)$", re.IGNORECASE)
 _BARE_NUMS = re.compile(r"^[\d/,\s]+(?:and[\d/,\s]+)*$", re.IGNORECASE)
+# Encuentra "ACORD <numeros>" DENTRO de una frase (mid-string), con listas /,.
+_ACORD_IN = re.compile(
+    r"ACORD\s+(\d+(?:\s*\([^)]*\))?(?:\s*[/,]\s*\d+(?:\s*\([^)]*\))?)*)",
+    re.IGNORECASE,
+)
 
 
 def _strip(s: str) -> str:
@@ -39,10 +44,13 @@ def split_document(raw: str | None) -> list[str]:
         p = _strip(p)
         if not p:
             continue
-        m = _ACORD_HEAD.match(p)
-        if m:
+        # ACORD embebido en la frase (p.ej. "Bundle ACORD 25/28 with every invoice"):
+        # emite solo los ACORD y descarta el texto descriptivo alrededor.
+        acord_hits = _ACORD_IN.findall(p)
+        if acord_hits:
             acord_mode = True
-            out.extend(_expand_acord(m.group(1)))
+            for grp in acord_hits:
+                out.extend(_expand_acord(grp))
             continue
         if acord_mode and _BARE_NUMS.match(p):
             out.extend(_expand_acord(p))

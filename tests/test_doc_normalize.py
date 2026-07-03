@@ -21,6 +21,10 @@ def test_plus_separates_non_acord_from_acord():
     assert split_document("Invoice + ACORD 25/28") == ["Invoice", "ACORD 25", "ACORD 28"]
 
 
+def test_acord_embedded_in_phrase_drops_description():
+    assert split_document("Bundle ACORD 25/28 with every invoice") == ["ACORD 25", "ACORD 28"]
+
+
 def test_non_acord_slash_not_split():
     # GL/Umbrella no se debe partir
     assert split_document("split GL vs Umbrella on invoice.") == ["split GL vs Umbrella on invoice"]

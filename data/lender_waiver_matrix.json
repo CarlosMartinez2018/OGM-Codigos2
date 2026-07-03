@@ -177,7 +177,8 @@
     "evidence_required_ops": "Ops: none beyond confirming payer contacts; ensure invoice/COI alignment.",
     "evidence_required_insurance": "ACORD 25/28; invoice with GL vs Umbrella breakout; paid receipt as needed.",
     "documents_expected": [
-      "Bundle ACORD 25/28 with every invoice",
+      "ACORD 25",
+      "ACORD 28",
       "split GL vs Umbrella on invoice"
     ],
     "actions_to_automate": "ACORD 25/28, Invoice with GL/Umbrella breakout",
