@@ -1,7 +1,8 @@
 import { useState, useEffect, useCallback } from 'react'
+import { RefreshCw } from 'lucide-react'
 import { emailsApi } from '../lib/api'
 import { fmtDate, fmtDateTime } from '../lib/dates'
-import { PageHeader, Loading, Empty, ErrorBox, Field, DetailBlock, Stamp } from '../components/ui'
+import { PageHeader, Loading, Empty, ErrorBox, Field, DetailBlock, Stamp, IconButton } from '../components/ui'
 import Drawer from '../components/Drawer'
 
 function EmailDrawer({ id, open, onClose }) {
@@ -71,6 +72,8 @@ export default function EmailsPage() {
   const [term, setTerm] = useState('')
   const [offset, setOffset] = useState(0)
   const [selected, setSelected] = useState(null)
+  const [fromDate, setFromDate] = useState('')
+  const [toDate, setToDate] = useState('')
 
   const load = useCallback((q, off) => {
     setLoading(true)
@@ -87,16 +90,35 @@ export default function EmailsPage() {
   const from = data.total === 0 ? 0 : offset + 1
   const to = Math.min(offset + PAGE, data.total)
 
+  const visible = data.items.filter((e) => {
+    if (!e.received_date) return true
+    const d = e.received_date.slice(0, 10) // YYYY-MM-DD del ISO
+    if (fromDate && d < fromDate) return false
+    if (toDate && d > toDate) return false
+    return true
+  })
+
   return (
     <div className="p-8 space-y-6 max-w-6xl">
       <PageHeader
         title="Bandeja de producción"
         subtitle={`${data.total} correos ingestados.`}
         actions={
-          <form onSubmit={onSearch} className="flex gap-2">
-            <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Asunto o remitente…" className="field w-64" />
-            <button className="btn btn-ghost">Buscar</button>
-          </form>
+          <div className="flex flex-wrap items-center gap-2">
+            <form onSubmit={onSearch} className="flex gap-2">
+              <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Asunto o remitente…" className="field w-64" />
+              <button className="btn btn-ghost">Buscar</button>
+            </form>
+            <label className="flex items-center gap-1.5 text-xs text-muted">
+              <span className="eyebrow">Desde</span>
+              <input type="date" value={fromDate} onChange={(e) => setFromDate(e.target.value)} max={toDate || undefined} className="field w-40" />
+            </label>
+            <label className="flex items-center gap-1.5 text-xs text-muted">
+              <span className="eyebrow">Hasta</span>
+              <input type="date" value={toDate} onChange={(e) => setToDate(e.target.value)} min={fromDate || undefined} className="field w-40" />
+            </label>
+            <IconButton icon={RefreshCw} label="Recargar" onClick={() => load(term, 0)} />
+          </div>
         }
       />
 
@@ -116,7 +138,7 @@ export default function EmailsPage() {
               </tr>
             </thead>
             <tbody>
-              {data.items.map((e) => (
+              {visible.map((e) => (
                 <tr key={e.id} className="cursor-pointer" onClick={() => setSelected(e.id)}>
                   <td className="max-w-md truncate text-ink" title={e.subject}>{e.subject || '(sin asunto)'}</td>
                   <td className="text-muted truncate max-w-[15rem]" title={e.sender}>{e.sender}</td>
@@ -126,7 +148,7 @@ export default function EmailsPage() {
                   </td>
                 </tr>
               ))}
-              {data.items.length === 0 && (
+              {visible.length === 0 && (
                 <tr><td colSpan={4}><Empty>Sin correos.</Empty></td></tr>
               )}
             </tbody>
