@@ -1,7 +1,8 @@
 import { useState, useEffect, useCallback } from 'react'
 import { sharepointApi } from '../lib/api'
 import { fmtDate } from '../lib/dates'
-import { PageHeader, Stamp, Spinner, Loading, Empty, ErrorBox } from '../components/ui'
+import { PageHeader, Stamp, Spinner, Loading, Empty, ErrorBox, StatCard, StatStrip } from '../components/ui'
+import { Files, FolderTree, HardDrive } from 'lucide-react'
 
 function humanSize(b) {
   if (b == null) return '—'
@@ -14,6 +15,7 @@ function humanSize(b) {
 export default function SharepointPage() {
   const [drives, setDrives] = useState([])
   const [data, setData] = useState({ total: 0, items: [] })
+  const [stats, setStats] = useState({ files: 0, folders: 0, drives: 0 })
   const [loading, setLoading] = useState(true)
   const [syncing, setSyncing] = useState(false)
   const [error, setError] = useState('')
@@ -32,14 +34,28 @@ export default function SharepointPage() {
       .finally(() => setLoading(false))
   }, [])
 
-  useEffect(() => { load('', '') }, [load])
+  const loadStats = useCallback(() => {
+    Promise.all([
+      sharepointApi.list({ only_files: true, limit: 1 }),
+      sharepointApi.list({ only_files: false, limit: 1 }),
+      sharepointApi.drives(),
+    ])
+      .then(([f, all, dv]) => setStats({
+        files: f.total || 0,
+        folders: Math.max((all.total || 0) - (f.total || 0), 0),
+        drives: dv.total ?? (dv.items || []).length,
+      }))
+      .catch(() => {})
+  }, [])
+
+  useEffect(() => { load('', ''); loadStats() }, [load, loadStats])
 
   const sync = async () => {
     setSyncing(true); setError(''); setMsg('')
     try {
       const r = await sharepointApi.sync()
       setMsg(`Sync OK · ${r.files_added} nuevos · ${r.files_updated} actualizados · ${r.items_seen} items · ${r.took_seconds}s`)
-      load(q, drive)
+      load(q, drive); loadStats()
     } catch (e) { setError(e.message) } finally { setSyncing(false) }
   }
 
@@ -56,6 +72,12 @@ export default function SharepointPage() {
           </button>
         }
       />
+
+      <StatStrip cols={3}>
+        <StatCard icon={Files} tone="navy" label="Archivos" value={stats.files} sub="documentos indexados" />
+        <StatCard icon={FolderTree} tone="coral" label="Carpetas" value={stats.folders} sub="contenedores" />
+        <StatCard icon={HardDrive} tone="ok" label="Drives" value={stats.drives} sub="bibliotecas" />
+      </StatStrip>
 
       {msg && <div className="text-sm text-ok bg-ok/10 ring-1 ring-inset ring-ok/25 rounded-md px-4 py-2">{msg}</div>}
       <ErrorBox message={error} />
