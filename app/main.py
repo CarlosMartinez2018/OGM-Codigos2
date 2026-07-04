@@ -25,6 +25,7 @@ from typing import Any, AsyncIterator, Optional
 import httpx
 from fastapi import Depends, FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import Response
 from pydantic import BaseModel
 from sqlalchemy import delete, func, or_, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -33,6 +34,7 @@ from sqlalchemy.orm import selectinload
 from app.core.config import settings
 from app.db.database import async_session, engine, init_db
 from app.db.models import (
+    AppSetting,
     DomainLenderMap,
     EmailClassification,
     EmailReview,
@@ -60,6 +62,10 @@ class CorrectionIn(BaseModel):
 class RejectionIn(BaseModel):
     comment: str
     reviewed_by: str = "operator"
+
+
+class SignatureIn(BaseModel):
+    signature: str
 
 
 class ReviewActionIn(BaseModel):
@@ -633,6 +639,28 @@ async def get_feedback_context() -> dict[str, Any]:
     return {"content": feedback_context.read_context()}
 
 
+@app.get("/api/v1/settings/signature")
+async def get_signature(session: AsyncSession = Depends(get_session)) -> dict[str, Any]:
+    """Firma del operador (para el composer de respuesta manual)."""
+    row = await session.get(AppSetting, "signature")
+    return {"signature": row.value if row else ""}
+
+
+@app.put("/api/v1/settings/signature")
+async def put_signature(
+    body: SignatureIn,
+    session: AsyncSession = Depends(get_session),
+) -> dict[str, Any]:
+    row = await session.get(AppSetting, "signature")
+    if row is None:
+        session.add(AppSetting(key="signature", value=body.signature))
+    else:
+        row.value = body.signature
+        row.updated_at = datetime.now(timezone.utc)
+    await session.commit()
+    return {"signature": body.signature}
+
+
 @app.post("/api/v1/classify/run")
 async def run_classification(
     limit: int = Query(default=100, ge=0, le=1000,
@@ -656,6 +684,35 @@ async def run_classification(
             }
             for pe, res in results
         ],
+    }
+
+
+@app.post("/api/v1/emails/reload")
+async def reload_emails(
+    reclassify: bool = Query(default=False, description="reprocesa incluso los ya clasificados"),
+    session: AsyncSession = Depends(get_session),
+) -> dict[str, Any]:
+    """Ingesta correos de Outlook (todas las fechas) y clasifica los pendientes.
+
+    Es el 'Recargar' de la Bandeja: trae el buzon completo y corre el pipeline.
+    """
+    from app.services.read_emails import read_outlook_emails, save_to_db
+
+    try:
+        emails = await read_outlook_emails(filter_today=False)
+    except ValueError as exc:  # Outlook no configurado
+        raise HTTPException(400, str(exc))
+    except ConnectionError as exc:  # error de Graph
+        raise HTTPException(502, str(exc))
+
+    processed, total = await save_to_db(emails)
+    results = await classifier.classify_pending_production_emails(
+        session, limit=0, reclassify=reclassify
+    )
+    return {
+        "ingested": processed,
+        "total_emails": total,
+        "classified": len(results),
     }
 
 
@@ -880,6 +937,34 @@ async def sharepoint_files(
     )).all()
     return {"total": total, "limit": limit, "offset": offset,
             "items": [_sp_file_to_dict(r) for r in rows]}
+
+
+@app.get("/api/v1/sharepoint/files/{file_id}/content")
+async def sharepoint_file_content(
+    file_id: str,
+    session: AsyncSession = Depends(get_session),
+) -> Response:
+    """Descarga el archivo real desde SharePoint (proxy) para verlo en el visor.
+
+    Trae los bytes via Graph al vuelo (sin duplicar storage) y los sirve inline.
+    """
+    row = await session.get(SharePointFile, file_id)
+    if row is None:
+        raise HTTPException(404, "Archivo no encontrado en el inventario")
+    if row.is_folder:
+        raise HTTPException(400, "El item es una carpeta, no un archivo")
+    if not sharepoint.is_configured:
+        raise HTTPException(503, "SharePoint no configurado")
+    try:
+        content, ctype = await sharepoint.download_item(row.drive_id, row.id)
+    except ConnectionError as exc:
+        raise HTTPException(502, str(exc))
+    ascii_name = (row.name or "archivo").encode("ascii", "ignore").decode() or "archivo"
+    return Response(
+        content=content,
+        media_type=row.mime_type or ctype,
+        headers={"Content-Disposition": f'inline; filename="{ascii_name}"'},
+    )
 
 
 # ---------------------------------------------------------------------------
