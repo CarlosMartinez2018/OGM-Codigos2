@@ -1,12 +1,22 @@
 import { useState, useEffect, useCallback } from 'react'
+import { Eye } from 'lucide-react'
 import { classificationsApi, metaApi } from '../lib/api'
 import {
-  Stamp, stampTone, PageHeader, Spinner, Loading, Empty, ErrorBox, Field, DetailBlock,
+  Stamp, stampTone, PageHeader, Spinner, Loading, Empty, ErrorBox, Field, DetailBlock, IconButton,
 } from '../components/ui'
+import Tabs from '../components/Tabs'
 import Drawer from '../components/Drawer'
 import Modal from '../components/Modal'
 
 const STATUS_TONE = { classified: 'warn', reviewed: 'ok', corrected: 'neutral' }
+
+// Tabs-container: mapea cada tab al campo `status` real del backend.
+// REJECTED aún no existe en backend (Fase 2) → queda vacío con Empty.
+const TABS = [
+  { key: 'APPROVED', label: 'Aprobado', status: 'reviewed' },
+  { key: 'CORRECTED', label: 'Corregido', status: 'corrected' },
+  { key: 'REJECTED', label: 'Rechazado', status: '__rejected__' },
+]
 
 // ── Modal de corrección ─────────────────────────────────────────────
 function CorrectModal({ open, onClose, item, onSaved }) {
@@ -248,19 +258,29 @@ export default function ClassificationsPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [level, setLevel] = useState('')
-  const [status, setStatus] = useState('')
+  const [tab, setTab] = useState('APPROVED')
   const [selected, setSelected] = useState(null)
   const [correcting, setCorrecting] = useState(null)
 
-  const load = useCallback((lvl, st) => {
+  const load = useCallback((lvl) => {
     setLoading(true)
-    classificationsApi.list({ limit: 100, confidence_level: lvl, status: st })
+    classificationsApi.list({ limit: 100, confidence_level: lvl })
       .then(setData)
       .catch((e) => setError(e.message))
       .finally(() => setLoading(false))
   }, [])
 
-  useEffect(() => { load(level, status) }, [load, level, status])
+  useEffect(() => { load(level) }, [load, level])
+
+  // Conteos por tab (cliente) sobre la página cargada.
+  const counts = TABS.reduce((acc, t) => {
+    acc[t.key] = data.items.filter((c) => c.status === t.status).length
+    return acc
+  }, {})
+
+  const visible = data.items.filter(
+    (c) => c.status === TABS.find((t) => t.key === tab)?.status
+  )
 
   return (
     <div className="p-8 space-y-6 max-w-6xl">
@@ -269,12 +289,6 @@ export default function ClassificationsPage() {
         subtitle={`${data.total} resultados. Abre una para ver el porqué, aprobar o corregir.`}
         actions={
           <div className="flex gap-2">
-            <select value={status} onChange={(e) => setStatus(e.target.value)} className="field">
-              <option value="">Todo estado</option>
-              <option value="classified">Sin revisar</option>
-              <option value="reviewed">Aprobadas</option>
-              <option value="corrected">Corregidas</option>
-            </select>
             <select value={level} onChange={(e) => setLevel(e.target.value)} className="field">
               <option value="">Toda confianza</option>
               <option value="high">Alta</option>
@@ -285,19 +299,28 @@ export default function ClassificationsPage() {
         }
       />
 
+      <Tabs
+        tabs={TABS.map((t) => ({ key: t.key, label: t.label, count: counts[t.key] ?? 0 }))}
+        active={tab}
+        onChange={setTab}
+      />
+
       <ErrorBox message={error} />
 
       {loading ? (
         <Loading />
-      ) : data.items.length === 0 ? (
-        <Empty>Sin clasificaciones.</Empty>
+      ) : visible.length === 0 ? (
+        <Empty>
+          {tab === 'REJECTED'
+            ? 'Sin clasificaciones rechazadas.'
+            : 'Sin clasificaciones en este estado.'}
+        </Empty>
       ) : (
         <div className="space-y-3">
-          {data.items.map((c) => (
+          {visible.map((c) => (
             <article
               key={c.id}
-              onClick={() => setSelected(c.id)}
-              className={`card overflow-hidden border-l-2 cursor-pointer hover:shadow-md transition-shadow ${
+              className={`card overflow-hidden border-l-2 ${
                 c.confidence_level === 'high' ? 'border-ok' : c.confidence_level === 'medium' ? 'border-warn' : 'border-stop'
               }`}
             >
@@ -312,11 +335,14 @@ export default function ClassificationsPage() {
                   </div>
                   {c.trigger_description && <p className="text-xs text-muted mt-1.5 truncate max-w-xl">{c.trigger_description}</p>}
                 </div>
-                <div className="text-right shrink-0 space-y-1.5">
-                  <Stamp tone={stampTone(c.confidence_level)}>
-                    {c.confidence_level} · {Math.round((c.confidence_score ?? 0) * 100)}%
-                  </Stamp>
-                  <p className="font-mono text-[11px] text-faint uppercase tracking-wider">{c.communication_category}</p>
+                <div className="flex items-start gap-4 shrink-0">
+                  <div className="text-right space-y-1.5">
+                    <Stamp tone={stampTone(c.confidence_level)}>
+                      {c.confidence_level} · {Math.round((c.confidence_score ?? 0) * 100)}%
+                    </Stamp>
+                    <p className="font-mono text-[11px] text-faint uppercase tracking-wider">{c.communication_category}</p>
+                  </div>
+                  <IconButton icon={Eye} label="Ver" onClick={() => setSelected(c.id)} />
                 </div>
               </div>
             </article>
@@ -328,14 +354,14 @@ export default function ClassificationsPage() {
         id={selected}
         open={selected !== null}
         onClose={() => setSelected(null)}
-        onChanged={() => load(level, status)}
+        onChanged={() => load(level)}
         onCorrect={(item) => setCorrecting(item)}
       />
       <CorrectModal
         open={correcting !== null}
         item={correcting}
         onClose={() => setCorrecting(null)}
-        onSaved={() => { load(level, status); setSelected(null) }}
+        onSaved={() => { load(level); setSelected(null) }}
       />
     </div>
   )

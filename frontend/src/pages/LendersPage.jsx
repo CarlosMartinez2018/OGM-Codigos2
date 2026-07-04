@@ -1,23 +1,44 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useMemo } from 'react'
 import { lendersApi } from '../lib/api'
+import Tabs from '../components/Tabs'
 import { Stamp, stampTone, PageHeader, Spinner, Loading, Empty, ErrorBox } from '../components/ui'
+
+// Campo de estado real (api.py): l.status ∈ APROBADO | POR_APROBAR | NO_APROBADO.
+// Blacklist = NO_APROBADO.
+const TABS = [
+  { key: 'APROBADO', label: 'Aprobados' },
+  { key: 'POR_APROBAR', label: 'Por aprobar' },
+  { key: 'NO_APROBADO', label: 'Blacklist' },
+]
 
 export default function LendersPage() {
   const [data, setData] = useState({ total: 0, items: [] })
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
-  const [status, setStatus] = useState('')
+  const [tab, setTab] = useState('POR_APROBAR')
   const [busy, setBusy] = useState(null)
 
-  const load = useCallback((s) => {
+  // Se traen todos los dominios y se filtra en cliente por tab (counts consistentes).
+  const load = useCallback(() => {
     setLoading(true)
-    lendersApi.list({ status: s })
+    lendersApi.list()
       .then(setData)
       .catch((e) => setError(e.message))
       .finally(() => setLoading(false))
   }, [])
 
-  useEffect(() => { load('') }, [load])
+  useEffect(() => { load() }, [load])
+
+  const counts = useMemo(() => {
+    const c = { APROBADO: 0, POR_APROBAR: 0, NO_APROBADO: 0 }
+    for (const l of data.items) if (l.status in c) c[l.status] += 1
+    return c
+  }, [data.items])
+
+  const visible = useMemo(
+    () => data.items.filter((l) => l.status === tab),
+    [data.items, tab]
+  )
 
   const act = async (domain, action) => {
     setBusy(domain)
@@ -25,7 +46,7 @@ export default function LendersPage() {
     try {
       if (action === 'approve') await lendersApi.approve(domain)
       else await lendersApi.reject(domain)
-      load(status)
+      load()
     } catch (e) {
       setError(e.message)
     } finally {
@@ -39,16 +60,11 @@ export default function LendersPage() {
         title="Lenders"
         subtitle={`${data.total} dominios. Aprobar reprocesa sus correos por el pipeline.`}
         actions={
-          <select
-            value={status}
-            onChange={(e) => { setStatus(e.target.value); load(e.target.value) }}
-            className="field"
-          >
-            <option value="">Todos los estados</option>
-            <option value="APROBADO">Aprobados</option>
-            <option value="POR_APROBAR">Por aprobar</option>
-            <option value="NO_APROBADO">Rechazados</option>
-          </select>
+          <Tabs
+            tabs={TABS.map((t) => ({ ...t, count: counts[t.key] }))}
+            active={tab}
+            onChange={setTab}
+          />
         }
       />
 
@@ -68,7 +84,7 @@ export default function LendersPage() {
               </tr>
             </thead>
             <tbody>
-              {data.items.map((l) => (
+              {visible.map((l) => (
                 <tr key={l.id}>
                   <td><span className="token">{l.domain}</span></td>
                   <td className="text-ink">{l.lender_name}</td>
@@ -93,7 +109,7 @@ export default function LendersPage() {
                   </td>
                 </tr>
               ))}
-              {data.items.length === 0 && (
+              {visible.length === 0 && (
                 <tr><td colSpan={4}><Empty>Sin lenders.</Empty></td></tr>
               )}
             </tbody>

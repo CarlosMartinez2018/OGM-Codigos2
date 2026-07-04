@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
 import { sharepointApi } from '../lib/api'
+import { fmtDate } from '../lib/dates'
 import { PageHeader, Stamp, Spinner, Loading, Empty, ErrorBox } from '../components/ui'
 
 function humanSize(b) {
@@ -94,7 +95,7 @@ export default function SharepointPage() {
                   <td>{f.file_extension ? <Stamp tone="neutral">{f.file_extension}</Stamp> : <span className="text-faint">—</span>}</td>
                   <td className="text-right font-mono text-xs text-muted tnum">{humanSize(f.size)}</td>
                   <td className="text-right font-mono text-xs text-muted whitespace-nowrap tnum">
-                    {f.sp_modified_at ? f.sp_modified_at.slice(0, 10) : '—'}
+                    {fmtDate(f.sp_modified_at)}
                   </td>
                 </tr>
               ))}

@@ -1,15 +1,15 @@
 import { useState, useEffect } from 'react'
 import { NavLink, Outlet } from 'react-router-dom'
+import { LayoutDashboard, Inbox, Sparkles, Building2, Table2, FolderTree } from 'lucide-react'
 import { metaApi } from '../lib/api'
 
 const NAV = [
-  { to: '/dashboard', label: 'Panel', code: '00' },
-  { to: '/inbox', label: 'Bandeja', code: '01' },
-  { to: '/classifications', label: 'Clasificaciones', code: '02' },
-  { to: '/reviews', label: 'Cola de revisión', code: '03' },
-  { to: '/lenders', label: 'Lenders', code: '04' },
-  { to: '/waivers', label: 'Matriz waivers', code: '05' },
-  { to: '/sharepoint', label: 'SharePoint', code: '06' },
+  { to: '/dashboard', label: 'Panel', Icon: LayoutDashboard },
+  { to: '/inbox', label: 'Bandeja', Icon: Inbox },
+  { to: '/classifications', label: 'Clasificaciones', Icon: Sparkles },
+  { to: '/lenders', label: 'Lenders', Icon: Building2 },
+  { to: '/waivers', label: 'Matriz waivers', Icon: Table2 },
+  { to: '/sharepoint', label: 'SharePoint', Icon: FolderTree },
 ]
 
 function HealthDot() {
@@ -64,7 +64,7 @@ export default function Layout() {
                 }`
               }
             >
-              <span className="font-mono text-[11px] text-white/35 group-hover:text-coral w-5">{n.code}</span>
+              <n.Icon size={17} strokeWidth={1.75} className="w-5 text-white/45 group-hover:text-coral shrink-0" />
               <span className="font-medium">{n.label}</span>
             </NavLink>
           ))}
