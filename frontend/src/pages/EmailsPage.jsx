@@ -61,24 +61,31 @@ function EmailDrawer({ id, open, onClose }) {
   )
 }
 
+const PAGE = 50
+
 export default function EmailsPage() {
-  const [data, setData] = useState({ total: 0, items: [] })
+  const [data, setData] = useState({ total: 0, items: [], offset: 0 })
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [search, setSearch] = useState('')
+  const [term, setTerm] = useState('')
+  const [offset, setOffset] = useState(0)
   const [selected, setSelected] = useState(null)
 
-  const load = useCallback((term) => {
+  const load = useCallback((q, off) => {
     setLoading(true)
-    emailsApi.list({ limit: 100, search: term })
+    emailsApi.list({ limit: PAGE, offset: off, search: q })
       .then(setData)
       .catch((e) => setError(e.message))
       .finally(() => setLoading(false))
   }, [])
 
-  useEffect(() => { load('') }, [load])
+  useEffect(() => { load(term, offset) }, [load, term, offset])
 
-  const onSearch = (e) => { e.preventDefault(); load(search) }
+  const onSearch = (e) => { e.preventDefault(); setOffset(0); setTerm(search) }
+
+  const from = data.total === 0 ? 0 : offset + 1
+  const to = Math.min(offset + PAGE, data.total)
 
   return (
     <div className="p-8 space-y-6 max-w-6xl">
@@ -124,6 +131,28 @@ export default function EmailsPage() {
               )}
             </tbody>
           </table>
+        </div>
+      )}
+
+      {!loading && data.total > 0 && (
+        <div className="flex items-center justify-between text-xs text-muted">
+          <span className="font-mono tnum">{from}–{to} de {data.total}</span>
+          <div className="flex gap-2">
+            <button
+              className="btn btn-ghost"
+              disabled={offset === 0}
+              onClick={() => setOffset(Math.max(0, offset - PAGE))}
+            >
+              Anterior
+            </button>
+            <button
+              className="btn btn-ghost"
+              disabled={to >= data.total}
+              onClick={() => setOffset(offset + PAGE)}
+            >
+              Siguiente
+            </button>
+          </div>
         </div>
       )}
 
