@@ -320,9 +320,9 @@ export default function ClassificationsPage() {
           <div className="flex gap-2">
             <select value={level} onChange={(e) => setLevel(e.target.value)} className="field">
               <option value="">Toda confianza</option>
-              <option value="high">Alta</option>
-              <option value="medium">Media</option>
-              <option value="low">Baja</option>
+              <option value="high">Alta (&gt; 85%)</option>
+              <option value="medium">Media (60-85%)</option>
+              <option value="low">Baja (&lt; 60%)</option>
             </select>
           </div>
         }
