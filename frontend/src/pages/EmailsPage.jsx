@@ -1,8 +1,8 @@
 import { useState, useEffect, useCallback } from 'react'
-import { RefreshCw } from 'lucide-react'
-import { emailsApi } from '../lib/api'
+import { RefreshCw, Mail, Sparkles, AlertTriangle, Paperclip } from 'lucide-react'
+import { emailsApi, metaApi } from '../lib/api'
 import { fmtDate, fmtDateTime } from '../lib/dates'
-import { PageHeader, Loading, Empty, ErrorBox, Field, DetailBlock, Stamp, IconButton } from '../components/ui'
+import { PageHeader, Loading, Empty, ErrorBox, Field, DetailBlock, Stamp, IconButton, StatCard, StatStrip } from '../components/ui'
 import Drawer from '../components/Drawer'
 
 function EmailDrawer({ id, open, onClose }) {
@@ -74,6 +74,9 @@ export default function EmailsPage() {
   const [selected, setSelected] = useState(null)
   const [fromDate, setFromDate] = useState('')
   const [toDate, setToDate] = useState('')
+  const [stats, setStats] = useState(null)
+
+  useEffect(() => { metaApi.stats().then(setStats).catch(() => {}) }, [])
 
   const load = useCallback((q, off) => {
     setLoading(true)
@@ -89,6 +92,11 @@ export default function EmailsPage() {
 
   const from = data.total === 0 ? 0 : offset + 1
   const to = Math.min(offset + PAGE, data.total)
+
+  const pendingReviews = stats?.pending_reviews_by_stage
+    ? Object.values(stats.pending_reviews_by_stage).reduce((a, n) => a + n, 0)
+    : 0
+  const withAttachments = data.items.filter((e) => e.has_attachments).length
 
   const visible = data.items.filter((e) => {
     if (!e.received_date) return true
@@ -123,6 +131,13 @@ export default function EmailsPage() {
       />
 
       <ErrorBox message={error} />
+
+      <StatStrip>
+        <StatCard icon={Mail} tone="navy" label="Total correos" value={stats?.total_emails ?? data.total} sub="ingestados en producción" />
+        <StatCard icon={Sparkles} tone="coral" label="Clasificados" value={stats?.total_classified ?? 0} sub="por reglas del pre-filtrado" />
+        <StatCard icon={AlertTriangle} tone="warn" label="Por revisar" value={pendingReviews} sub="en cola de revisión" />
+        <StatCard icon={Paperclip} tone="ok" label="Con adjuntos" value={withAttachments} sub="en esta página" />
+      </StatStrip>
 
       {loading ? (
         <Loading />
