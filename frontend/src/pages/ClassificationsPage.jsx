@@ -254,9 +254,35 @@ function ClassificationDrawer({ id, open, onClose, onChanged, onCorrect }) {
   )
 }
 
+// Tarjeta de resumen por banda de confianza (vistazo inmediato + umbral).
+function ConfCard({ label, value, threshold, accent, dim }) {
+  return (
+    <div className={`card px-4 py-3 border-l-[3px] ${accent}`}>
+      <div className="flex items-baseline justify-between gap-2">
+        <p className="eyebrow">{label}</p>
+        <span className="display text-2xl tnum" style={{ color: dim }}>{value ?? 0}</span>
+      </div>
+      <p className="font-mono text-[11px] text-faint mt-1">{threshold}</p>
+    </div>
+  )
+}
+
+function ConfidenceSummary({ stats }) {
+  const c = stats?.classifications_by_confidence || {}
+  return (
+    <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+      <ConfCard label="Total" value={stats?.total_classified} threshold="clasificados por reglas" accent="border-navy" dim="#1C2445" />
+      <ConfCard label="Alta" value={c.high} threshold="≥ 85%" accent="border-ok" dim="#0F7B4A" />
+      <ConfCard label="Media" value={c.medium} threshold="60 – 85%" accent="border-warn" dim="#B45309" />
+      <ConfCard label="Baja" value={c.low} threshold="< 60% · revisar" accent="border-stop" dim="#B42318" />
+    </div>
+  )
+}
+
 // ── Página ──────────────────────────────────────────────────────────
 export default function ClassificationsPage() {
   const [data, setData] = useState({ total: 0, items: [] })
+  const [stats, setStats] = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [level, setLevel] = useState('')
@@ -270,6 +296,7 @@ export default function ClassificationsPage() {
       .then(setData)
       .catch((e) => setError(e.message))
       .finally(() => setLoading(false))
+    metaApi.stats().then(setStats).catch(() => {})
   }, [])
 
   useEffect(() => { load(level) }, [load, level])
@@ -300,6 +327,8 @@ export default function ClassificationsPage() {
           </div>
         }
       />
+
+      <ConfidenceSummary stats={stats} />
 
       <Tabs
         tabs={TABS.map((t) => ({ key: t.key, label: t.label, count: counts[t.key] ?? 0 }))}
