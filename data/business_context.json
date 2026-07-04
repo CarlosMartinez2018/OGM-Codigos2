@@ -79,10 +79,11 @@
       "typical_interlocutors": ["Credit Committees", "Senior Underwriters", "Special Asset Management Teams"],
       "trigger_signals": [
         "breach", "default", "notice of default", "technical default",
-        "covenant violation", "non-compliance", "noncompliance", "forbearance request",
+        "covenant violation", "forbearance request",
         "cure period", "maturity default", "acceleration", "debt service shortfall",
         "loan in default", "event of default"
       ],
+      "note": "Signals ambiguos 'non-compliance'/'noncompliance' se movieron fuera de aqui: en este buzon casi siempre son deficiencias de seguro (WAIVER_REQUEST), no default financiero. Siguen forzando escalado via risk_escalation.critical_keywords.",
       "tone": "Highly professional, persuasive, data-driven. Argue the breach is non-material or temporary.",
       "escalate_for_review": true,
       "human_review_required": true

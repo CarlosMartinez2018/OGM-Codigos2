@@ -32,6 +32,7 @@ from sqlalchemy import delete, select, update
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core import business_context as bc
 from app.core.config import settings
 from app.db.database import async_session, engine, init_db
 from app.db.models import (
@@ -49,34 +50,83 @@ logger = logging.getLogger(__name__)
 console = Console()
 
 INTERNAL_DOMAINS = {"acentopartners.com", "captiveadvisorypartners.com"}
-PROMPT_INJECTION_PATTERNS = [
-    "ignore previous instructions",
-    "forget your instructions",
-    "system prompt",
-    "developer message",
-    "you are now",
-    "new role",
-    "override",
-    "jailbreak",
+
+# --- Cableado a business_context.json --------------------------------------
+# Estas listas y la taxonomia de categorias vienen del activo de negocio
+# (data/business_context.json). Se cargan una vez al importar el modulo con
+# fallback a valores minimos si el JSON no esta. Escalar de mas es seguro
+# (lo revisa un humano); escalar de menos no lo es -> unimos criticos+elevados.
+
+# Prioridad de evaluacion de categorias: riesgo primero, luego la mas comun.
+_CATEGORY_PRIORITY = [
+    "COVENANT_BREACH", "WAIVER_REQUEST", "LENDER_ALERT",
+    "LENDER_COMPLIANCE", "OPERATIONAL_WAIVER",
 ]
 
-
-# Categoria de comunicacion (orden = prioridad). Absorbido de OGM_Lenders.
-_CATEGORY_KEYWORDS: list[tuple[str, list[str]]] = [
+_FALLBACK_INJECTION = [
+    "ignore previous instructions", "forget your instructions",
+    "system prompt", "developer message", "you are now", "new role",
+    "override", "jailbreak",
+]
+_FALLBACK_CRITICAL = [
+    "legal action", "default", "cancellation", "cancel", "penalty",
+    "past due", "overdue", "non-compliance", "noncompliance",
+    "final notice", "deadline", "urgent", "termination",
+]
+_FALLBACK_CATEGORY_KEYWORDS: list[tuple[str, list[str]]] = [
     ("COVENANT_BREACH", ["covenant", "breach", "event of default"]),
-    ("LENDER_ALERT", ["urgent", "final notice", "past due", "overdue",
-                      "deadline", "reminder", "immediately"]),
+    ("LENDER_ALERT", ["urgent", "final notice", "past due", "overdue"]),
     ("LENDER_COMPLIANCE", ["non-compliance", "noncompliance", "compliance",
                            "deficiency", "notice", "required"]),
     ("WAIVER_REQUEST", ["waiver", "request"]),
 ]
 
-# Palabras que fuerzan escalado a revision humana.
-_CRITICAL_KEYWORDS = [
-    "legal action", "default", "cancellation", "cancel", "penalty",
-    "past due", "overdue", "non-compliance", "noncompliance",
-    "final notice", "deadline", "urgent", "termination",
-]
+
+def _build_injection_patterns() -> list[str]:
+    bc_patterns = [p.lower() for p in bc.injection_patterns() if p]
+    # Union preservando orden; los del JSON son mas ricos.
+    seen: set[str] = set()
+    out: list[str] = []
+    for p in bc_patterns + _FALLBACK_INJECTION:
+        if p not in seen:
+            seen.add(p)
+            out.append(p)
+    return out
+
+
+def _build_critical_keywords() -> list[str]:
+    esc = bc.load_business_context().get("risk_escalation", {})
+    kws = [k.lower() for k in esc.get("critical_keywords", [])]
+    kws += [k.lower() for k in esc.get("elevated_keywords", [])]
+    kws += _FALLBACK_CRITICAL
+    seen: set[str] = set()
+    return [k for k in kws if not (k in seen or seen.add(k))]
+
+
+def _build_category_keywords() -> list[tuple[str, list[str]]]:
+    cats = {c["id"]: c for c in bc.communication_categories() if c.get("id")}
+    if not cats:
+        return _FALLBACK_CATEGORY_KEYWORDS
+    ordered: list[tuple[str, list[str]]] = []
+    ids = _CATEGORY_PRIORITY + [cid for cid in cats if cid not in _CATEGORY_PRIORITY]
+    for cid in ids:
+        c = cats.get(cid)
+        if c:
+            ordered.append((cid, [s.lower() for s in c.get("trigger_signals", [])]))
+    return ordered
+
+
+def _build_escalation_categories() -> set[str]:
+    return {
+        c["id"] for c in bc.communication_categories()
+        if c.get("id") and (c.get("escalate_for_review") or c.get("human_review_required"))
+    }
+
+
+PROMPT_INJECTION_PATTERNS = _build_injection_patterns()
+_CRITICAL_KEYWORDS = _build_critical_keywords()
+_CATEGORY_KEYWORDS = _build_category_keywords()
+_ESCALATION_CATEGORIES = _build_escalation_categories()
 
 _TOKEN_STOPWORDS = {"and", "or", "the", "of", "for", "to", "a", "de", "la", "el", "y"}
 
@@ -86,7 +136,7 @@ def _normalize(text: str | None) -> str:
 
 
 def _communication_category(subject: str, body: str) -> str:
-    """Clasifica la naturaleza del correo por palabras clave (prioridad por orden)."""
+    """Clasifica la naturaleza del correo por trigger_signals (prioridad por orden)."""
     text = _normalize(f"{subject} {body}")
     for category, keywords in _CATEGORY_KEYWORDS:
         if any(kw in text for kw in keywords):
@@ -94,9 +144,12 @@ def _communication_category(subject: str, body: str) -> str:
     return "OPERATIONAL_WAIVER"
 
 
-def _should_escalate(subject: str, body: str, injection: bool) -> bool:
-    """True cuando hay inyeccion de prompt o riesgo critico -> revision humana."""
+def _should_escalate(subject: str, body: str, injection: bool,
+                     category: str | None = None) -> bool:
+    """True cuando hay inyeccion, riesgo critico o categoria de revision -> humano."""
     if injection:
+        return True
+    if category and category in _ESCALATION_CATEGORIES:
         return True
     text = _normalize(f"{subject} {body}")
     return any(kw in text for kw in _CRITICAL_KEYWORDS)
@@ -632,6 +685,7 @@ class EmailClassifier:
             confidence = min(confidence, 0.20)
 
         trigger_description = "; ".join(validation["trigger_matches"]) or "No configured trigger matched."
+        category = _communication_category(email.subject, email.body_text)
 
         result = ClassificationResult(
             lender=lender,
@@ -646,9 +700,11 @@ class EmailClassifier:
             waiver_pack=waiver_entry["waiver_pack"] if waiver_entry else "",
             actions_to_automate=waiver_entry["actions_to_automate"] if waiver_entry else "",
             validation_details=validation,
-            communication_category=_communication_category(email.subject, email.body_text),
+            communication_category=category,
             escalate_for_review=_should_escalate(
-                email.subject, email.body_text, validation.get("prompt_injection_detected", False)
+                email.subject, email.body_text,
+                validation.get("prompt_injection_detected", False),
+                category=category,
             ),
         )
         return result
