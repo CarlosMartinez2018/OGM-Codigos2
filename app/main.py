@@ -16,6 +16,7 @@ de OGM_Lenders para minimizar retrabajo de UI.
 """
 from __future__ import annotations
 
+import re
 import time
 from contextlib import asynccontextmanager
 from datetime import datetime, timezone
@@ -846,35 +847,91 @@ async def sharepoint_files(
 # Comparacion: documentos esperados (BD) vs archivos en SharePoint
 # ---------------------------------------------------------------------------
 
-async def _match_documents(session: AsyncSession, docs: list[str]) -> list[dict[str, Any]]:
-    """Para cada documento esperado busca por NOMBRE EXACTO en SharePoint.
+# Tokens de relleno que no aportan al match (demasiado genericos).
+_DOC_STOPWORDS = frozenset({
+    "of", "the", "and", "for", "to", "a", "an", "with",
+    "page", "pages", "form", "forms", "section", "copy", "final", "sample",
+    "letter", "letters", "doc", "document", "documents", "file", "files",
+})
+# Archivos que son correspondencia, no el entregable en si.
+_EMAIL_EXTS = frozenset({"eml", "msg"})
 
-    'Exacto' = el nombre del archivo (sin extension) es igual al nombre del
-    documento (case-insensitive). Si no aparece -> found=False (no encontrado).
+
+def _doc_tokens(text: str) -> list[str]:
+    """Normaliza a tokens significativos: minusculas, alfanumericos, sin relleno.
+
+    Mantiene numeros (p.ej. '101', '25') y tokens de >=2 caracteres. Descarta
+    tokens de una sola letra (a/b de 'A&B') porque generan falsos positivos.
     """
+    raw = re.split(r"[^a-z0-9]+", (text or "").lower())
+    return [
+        t for t in raw
+        if t and t not in _DOC_STOPWORDS and (t.isdigit() or len(t) >= 2)
+    ]
+
+
+def _strip_ext(name: str) -> tuple[str, str]:
+    """Devuelve (nombre_sin_ext, ext_minuscula)."""
+    if "." in name:
+        stem, ext = name.rsplit(".", 1)
+        return stem, ext.lower()
+    return name, ""
+
+
+async def _match_documents(session: AsyncSession, docs: list[str]) -> list[dict[str, Any]]:
+    """Para cada documento esperado busca coincidencias en SharePoint.
+
+    Estrategia en dos niveles (de mas fuerte a mas debil):
+      1. EXACTO  -- el nombre del archivo (sin extension) == nombre del documento.
+      2. TOKENS  -- todos los tokens significativos del documento aparecen en el
+                    nombre del archivo (subconjunto). P.ej. 'ACORD 101' machea
+                    'ACENTO - ... - ACORD FORM 101 - GL 01.06.26.pdf'.
+
+    Los archivos de correo (.eml/.msg) solo cuentan para match exacto: son
+    correspondencia, no el entregable de cumplimiento. found=False si nada
+    coincide. Los matches se ordenan por match_type (exacto primero) y por
+    cuan ajustado es (menos tokens sobrantes = mas relevante).
+    """
+    # Cargar el inventario una sola vez (cientos de filas, barato) y puntuar en Python.
+    files = (await session.scalars(
+        select(SharePointFile).where(SharePointFile.is_folder.is_(False))
+    )).all()
+
+    # Precomputar tokens y stem por archivo.
+    catalog: list[tuple[SharePointFile, str, str, set[str]]] = []
+    for f in files:
+        stem, ext = _strip_ext(f.name)
+        catalog.append((f, stem.lower(), ext, set(_doc_tokens(f.name))))
+
     result: list[dict[str, Any]] = []
     for doc in docs:
         d = (doc or "").strip()
         if not d:
             continue
         low = d.lower()
-        stmt = (
-            select(SharePointFile)
-            .where(SharePointFile.is_folder.is_(False))
-            .where(or_(
-                func.lower(SharePointFile.name) == low,          # sin extension
-                func.lower(SharePointFile.name).like(low + ".%"),  # nombre.ext exacto
-            ))
-            .limit(10)
-        )
-        files = (await session.scalars(stmt)).all()
+        expected = set(_doc_tokens(d))
+        matches: list[tuple[int, int, dict[str, Any]]] = []
+        for f, stem_low, ext, ftoks in catalog:
+            is_email = ext in _EMAIL_EXTS
+            if stem_low == low:
+                match_type, rank, extra = "exact", 0, 0
+            elif not is_email and expected and expected <= ftoks:
+                match_type, rank, extra = "tokens", 1, len(ftoks - expected)
+            else:
+                continue
+            matches.append((rank, extra, {
+                "name": f.name,
+                "drive_name": f.drive_name,
+                "web_url": f.web_url,
+                "match_type": match_type,
+            }))
+        matches.sort(key=lambda m: (m[0], m[1]))
+        top = [m[2] for m in matches[:10]]
         result.append({
             "document": d,
-            "found": len(files) > 0,
-            "matches": [
-                {"name": f.name, "drive_name": f.drive_name, "web_url": f.web_url}
-                for f in files
-            ],
+            "found": len(top) > 0,
+            "match_type": top[0]["match_type"] if top else None,
+            "matches": top,
         })
     return result
 
