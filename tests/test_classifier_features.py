@@ -21,11 +21,24 @@ def test_category_covenant_breach():
 
 
 def test_category_lender_alert():
-    assert _communication_category("URGENT: final notice", "payment past due") == "LENDER_ALERT"
+    # LENDER_ALERT = aviso proactivo de riesgo de covenant (taxonomia business_context).
+    assert _communication_category(
+        "Heads-up on Q3", "DSCR may fall below covenant threshold due to seasonal vacancy"
+    ) == "LENDER_ALERT"
 
 
 def test_category_compliance():
-    assert _communication_category("Non-Compliance Notice", "wording deficiency found") == "LENDER_COMPLIANCE"
+    # Certificado/COI rutinario -> LENDER_COMPLIANCE.
+    assert _communication_category(
+        "Annual insurance certificate", "please find attached proof of insurance / COI"
+    ) == "LENDER_COMPLIANCE"
+
+
+def test_category_noncompliance_is_waiver_not_breach():
+    # 'Non-compliance' de seguro es deficiencia (WAIVER_REQUEST), NO default financiero.
+    assert _communication_category(
+        "Non-Compliance Notice", "wording deficiency found; please provide endorsement"
+    ) == "WAIVER_REQUEST"
 
 
 def test_category_waiver_request():
