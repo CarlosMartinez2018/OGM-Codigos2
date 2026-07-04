@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
 import { emailsApi } from '../lib/api'
+import { fmtDate, fmtDateTime } from '../lib/dates'
 import { PageHeader, Loading, Empty, ErrorBox, Field, DetailBlock, Stamp } from '../components/ui'
 import Drawer from '../components/Drawer'
 
@@ -20,7 +21,7 @@ function EmailDrawer({ id, open, onClose }) {
           <div className="grid grid-cols-2 gap-4">
             <Field label="Remitente" value={data.sender} mono />
             <Field label="Dominio" value={data.sender_domain} mono />
-            <Field label="Recibido" value={data.received_date ? data.received_date.slice(0, 10) : '—'} mono />
+            <Field label="Recibido" value={fmtDateTime(data.received_date)} mono />
             <div>
               <p className="eyebrow mb-1">Adjuntos</p>
               {data.has_attachments
@@ -114,7 +115,7 @@ export default function EmailsPage() {
                   <td className="text-muted truncate max-w-[15rem]" title={e.sender}>{e.sender}</td>
                   <td><span className="token">{e.sender_domain}</span></td>
                   <td className="text-right font-mono text-xs text-muted whitespace-nowrap tnum">
-                    {e.received_date ? e.received_date.slice(0, 10) : '—'}
+                    {fmtDate(e.received_date)}
                   </td>
                 </tr>
               ))}

@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
 import { reviewsApi } from '../lib/api'
+import { fmtDate, fmtDateTime } from '../lib/dates'
 import { Stamp, PageHeader, Spinner, Loading, Empty, ErrorBox, Field, DetailBlock } from '../components/ui'
 import Drawer from '../components/Drawer'
 
@@ -31,8 +32,6 @@ const STAGE_HELP = {
   seguridad_bloqueo: 'Contenido cifrado, truncado o bloqueado; no se pudo leer el cuerpo.',
   blacklist: 'Dominio en blacklist (NO_APROBADO): ruido o rechazado.',
 }
-
-function fmtDate(iso) { return iso ? iso.slice(0, 10) : '—' }
 
 function ReviewDrawer({ id, open, onClose, onResolved }) {
   const [data, setData] = useState(null)
@@ -83,7 +82,7 @@ function ReviewDrawer({ id, open, onClose, onResolved }) {
           <div className="grid grid-cols-2 gap-4">
             <Field label="Dominio remitente" value={data.sender_domain || '—'} mono />
             <Field label="Remitente" value={data.sender || '(no disponible)'} mono />
-            <Field label="Recibido" value={fmtDate(data.received_date)} mono />
+            <Field label="Recibido" value={fmtDateTime(data.received_date)} mono />
             <Field label="Remitente original" value={data.detected_original_sender || '—'} mono />
           </div>
 
