@@ -34,6 +34,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core import business_context as bc
 from app.core.config import settings
+from app.services import feedback_context
 from app.db.database import async_session, engine, init_db
 from app.db.models import (
     DomainLenderMap,
@@ -767,6 +768,8 @@ class EmailClassifier:
                 "waiver_type": rule_result.waiver_type,
                 "confidence_score": rule_result.confidence_score,
             },
+            # Aprendizaje continuo: correcciones/rechazos humanos previos.
+            "operator_feedback": feedback_context.read_context()[-1500:],
             "email": {
                 "subject": email.subject,
                 "body_text": email.body_text[:1500],

@@ -41,7 +41,7 @@ from app.db.models import (
     ProductionEmail,
     SharePointFile,
 )
-from app.services import lender_approval
+from app.services import feedback_context, lender_approval
 from app.services.llm_classifier import classifier
 from app.services.sharepoint.connector import sharepoint
 
@@ -55,6 +55,11 @@ class CorrectionIn(BaseModel):
     corrected_waiver_type: str
     reviewed_by: str = "operator"
     notes: Optional[str] = None
+
+
+class RejectionIn(BaseModel):
+    comment: str
+    reviewed_by: str = "operator"
 
 
 class ReviewActionIn(BaseModel):
@@ -570,6 +575,12 @@ async def correct_classification(
     if row is None:
         raise HTTPException(404, "Clasificacion no encontrada")
 
+    # Registrar en el contexto de feedback ANTES de sobrescribir el par original.
+    feedback_context.append_correction(
+        row.lender, row.waiver_type,
+        body.corrected_lender, body.corrected_waiver_type, body.notes,
+    )
+
     row.corrected_lender = body.corrected_lender
     row.corrected_waiver_type = body.corrected_waiver_type
     row.reviewed_by = body.reviewed_by
@@ -592,6 +603,34 @@ async def correct_classification(
     await session.commit()
     await session.refresh(row)
     return _classification_to_dict(row)
+
+
+@app.post("/api/v1/classifications/{classification_id}/reject")
+async def reject_classification(
+    classification_id: int,
+    body: RejectionIn,
+    session: AsyncSession = Depends(get_session),
+) -> dict[str, Any]:
+    """Rechaza una clasificacion con comentario; alimenta el contexto de feedback."""
+    row = await session.get(EmailClassification, classification_id)
+    if row is None:
+        raise HTTPException(404, "Clasificacion no encontrada")
+
+    feedback_context.append_rejection(row.lender, row.waiver_type, body.comment)
+
+    row.status = "rejected"
+    row.reviewed_by = body.reviewed_by
+    row.correction_notes = body.comment
+    row.updated_at = datetime.now(timezone.utc)
+    await session.commit()
+    await session.refresh(row)
+    return _classification_to_dict(row)
+
+
+@app.get("/api/v1/feedback-context")
+async def get_feedback_context() -> dict[str, Any]:
+    """Devuelve el contexto de feedback acumulado (correcciones + rechazos)."""
+    return {"content": feedback_context.read_context()}
 
 
 @app.post("/api/v1/classify/run")
