@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
-import { Eye } from 'lucide-react'
-import { classificationsApi, metaApi } from '../lib/api'
+import { Eye, FileText } from 'lucide-react'
+import { classificationsApi, metaApi, sharepointApi } from '../lib/api'
 import {
   Stamp, stampTone, PageHeader, Spinner, Loading, Empty, ErrorBox, Field, DetailBlock, IconButton,
 } from '../components/ui'
@@ -8,16 +8,15 @@ import Tabs from '../components/Tabs'
 import Drawer from '../components/Drawer'
 import Modal from '../components/Modal'
 
-const STATUS_TONE = { classified: 'warn', reviewed: 'ok', corrected: 'neutral' }
+const STATUS_TONE = { classified: 'warn', reviewed: 'ok', corrected: 'neutral', rejected: 'stop' }
 
 // Tabs-container: mapea cada tab al campo `status` real del backend.
 // 'classified' = recién clasificado por la IA, pendiente de revisión humana.
-// REJECTED aún no existe en backend (Fase 2) → queda vacío con Empty.
 const TABS = [
   { key: 'PENDING', label: 'Por revisar', status: 'classified' },
   { key: 'APPROVED', label: 'Aprobado', status: 'reviewed' },
   { key: 'CORRECTED', label: 'Corregido', status: 'corrected' },
-  { key: 'REJECTED', label: 'Rechazado', status: '__rejected__' },
+  { key: 'REJECTED', label: 'Rechazado', status: 'rejected' },
 ]
 
 // ── Modal de corrección ─────────────────────────────────────────────
@@ -92,8 +91,74 @@ function CorrectModal({ open, onClose, item, onSaved }) {
   )
 }
 
+// ── Modal de rechazo (comentario → contexto IA) ─────────────────────
+function RejectModal({ open, onClose, item, onSaved }) {
+  const [comment, setComment] = useState('')
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState('')
+
+  useEffect(() => { if (open) { setComment(''); setError('') } }, [open])
+
+  const submit = async (e) => {
+    e.preventDefault()
+    if (!comment.trim()) { setError('El comentario es obligatorio: alimenta el contexto de la IA.'); return }
+    setSaving(true); setError('')
+    try { await classificationsApi.reject(item.id, comment.trim()); onSaved(); onClose() }
+    catch (err) { setError(err.message) } finally { setSaving(false) }
+  }
+
+  return (
+    <Modal open={open} onClose={onClose} title="Rechazar clasificación">
+      {item && (
+        <form onSubmit={submit} className="px-6 py-5 space-y-4">
+          <div className="card px-4 py-3 text-sm">
+            <p className="eyebrow mb-1.5">Clasificación rechazada</p>
+            <p className="text-ink">{item.lender} · {item.waiver_type}</p>
+          </div>
+          <div>
+            <label className="eyebrow">Motivo del rechazo</label>
+            <textarea rows={3} value={comment} onChange={(e) => setComment(e.target.value)}
+              placeholder="¿Por qué está mal? Este texto entra al contexto para que la IA mejore…"
+              className="field w-full mt-1 resize-none" />
+          </div>
+          <ErrorBox message={error} />
+          <div className="flex justify-end gap-2 pt-1">
+            <button type="button" onClick={onClose} className="btn btn-ghost" disabled={saving}>Cancelar</button>
+            <button type="submit" className="btn btn-danger px-3.5 py-2" disabled={saving}>
+              {saving && <Spinner className="border-stop/40 border-t-stop" />} Rechazar
+            </button>
+          </div>
+        </form>
+      )}
+    </Modal>
+  )
+}
+
+// ── Visor de PDF inline (proxy de SharePoint) ───────────────────────
+function PdfModal({ file, onClose }) {
+  return (
+    <Modal open={!!file} onClose={onClose} title={file?.name || 'Documento'}>
+      {file && (
+        <div className="px-4 py-4">
+          <iframe
+            title={file.name}
+            src={sharepointApi.contentUrl(file.id)}
+            className="w-full h-[70vh] rounded-md border border-line bg-paper"
+          />
+          <div className="flex justify-end mt-3">
+            <a href={file.web_url || sharepointApi.contentUrl(file.id)} target="_blank" rel="noreferrer" className="btn btn-ghost">
+              Abrir en SharePoint
+            </a>
+          </div>
+        </div>
+      )}
+    </Modal>
+  )
+}
+
 // ── Drawer de detalle (por qué + acciones) ──────────────────────────
-function ClassificationDrawer({ id, open, onClose, onChanged, onCorrect }) {
+function ClassificationDrawer({ id, open, onClose, onChanged, onCorrect, onReject }) {
+  const [pdf, setPdf] = useState(null)
   const [data, setData] = useState(null)
   const [loading, setLoading] = useState(false)
   const [approving, setApproving] = useState(false)
@@ -181,11 +246,20 @@ function ClassificationDrawer({ id, open, onClose, onChanged, onCorrect }) {
                 <ul className="space-y-1.5">
                   {docs.documents.map((d) => (
                     <li key={d.document} className="flex items-center justify-between gap-3 text-sm">
-                      <span className="text-ink">{d.document}</span>
+                      <span className="text-ink min-w-0 truncate" title={d.document}>{d.document}</span>
                       {d.found ? (
-                        d.matches[0]?.web_url
-                          ? <a href={d.matches[0].web_url} target="_blank" rel="noreferrer"><Stamp tone="ok">encontrado</Stamp></a>
-                          : <Stamp tone="ok">encontrado</Stamp>
+                        <div className="flex items-center gap-2 shrink-0">
+                          {d.matches[0]?.id && (
+                            <button
+                              onClick={() => setPdf(d.matches[0])}
+                              className="inline-flex items-center gap-1 text-navy hover:text-coral transition-colors"
+                              title={`Ver ${d.matches[0].name}`}
+                            >
+                              <FileText size={14} /> <span className="text-xs">Ver</span>
+                            </button>
+                          )}
+                          <Stamp tone="ok">encontrado</Stamp>
+                        </div>
                       ) : (
                         <Stamp tone="stop">no encontrado</Stamp>
                       )}
@@ -240,6 +314,7 @@ function ClassificationDrawer({ id, open, onClose, onChanged, onCorrect }) {
                 {approving && <Spinner className="border-white/40 border-t-white" />} Aprobar
               </button>
               <button onClick={() => onCorrect(data)} className="btn btn-ghost flex-1">Corregir</button>
+              <button onClick={() => onReject(data)} className="btn btn-danger flex-1 py-2">Rechazar</button>
             </div>
           ) : (
             <div className="flex items-center gap-2 text-sm text-muted card px-4 py-3">
@@ -250,6 +325,7 @@ function ClassificationDrawer({ id, open, onClose, onChanged, onCorrect }) {
           )}
         </div>
       )}
+      <PdfModal file={pdf} onClose={() => setPdf(null)} />
     </Drawer>
   )
 }
@@ -289,6 +365,7 @@ export default function ClassificationsPage() {
   const [tab, setTab] = useState('PENDING')
   const [selected, setSelected] = useState(null)
   const [correcting, setCorrecting] = useState(null)
+  const [rejecting, setRejecting] = useState(null)
 
   const load = useCallback((lvl) => {
     setLoading(true)
@@ -387,11 +464,18 @@ export default function ClassificationsPage() {
         onClose={() => setSelected(null)}
         onChanged={() => load(level)}
         onCorrect={(item) => setCorrecting(item)}
+        onReject={(item) => setRejecting(item)}
       />
       <CorrectModal
         open={correcting !== null}
         item={correcting}
         onClose={() => setCorrecting(null)}
+        onSaved={() => { load(level); setSelected(null) }}
+      />
+      <RejectModal
+        open={rejecting !== null}
+        item={rejecting}
+        onClose={() => setRejecting(null)}
         onSaved={() => { load(level); setSelected(null) }}
       />
     </div>

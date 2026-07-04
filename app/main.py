@@ -1044,9 +1044,11 @@ async def _match_documents(session: AsyncSession, docs: list[str]) -> list[dict[
             else:
                 continue
             matches.append((rank, extra, {
+                "id": f.id,
                 "name": f.name,
                 "drive_name": f.drive_name,
                 "web_url": f.web_url,
+                "file_extension": f.file_extension,
                 "match_type": match_type,
             }))
         matches.sort(key=lambda m: (m[0], m[1]))

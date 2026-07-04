@@ -75,8 +75,19 @@ export default function EmailsPage() {
   const [fromDate, setFromDate] = useState('')
   const [toDate, setToDate] = useState('')
   const [stats, setStats] = useState(null)
+  const [reloading, setReloading] = useState(false)
 
-  useEffect(() => { metaApi.stats().then(setStats).catch(() => {}) }, [])
+  const refreshStats = useCallback(() => { metaApi.stats().then(setStats).catch(() => {}) }, [])
+  useEffect(() => { refreshStats() }, [refreshStats])
+
+  const reloadFromOutlook = async () => {
+    setReloading(true); setError('')
+    try {
+      await emailsApi.reload(false)
+      load(term, 0)
+      refreshStats()
+    } catch (e) { setError(e.message) } finally { setReloading(false) }
+  }
 
   const load = useCallback((q, off) => {
     setLoading(true)
@@ -125,7 +136,7 @@ export default function EmailsPage() {
               <span className="eyebrow">Hasta</span>
               <input type="date" value={toDate} onChange={(e) => setToDate(e.target.value)} min={fromDate || undefined} className="field w-40" />
             </label>
-            <IconButton icon={RefreshCw} label="Recargar" onClick={() => load(term, 0)} />
+            <IconButton icon={RefreshCw} label={reloading ? 'Recargando…' : 'Recargar'} onClick={reloadFromOutlook} />
           </div>
         }
       />
