@@ -29,6 +29,14 @@ from app.schemas import EmailData
 from app.db.database import async_session, init_db, engine
 from app.db.models import ProductionEmail
 
+# En consolas Windows heredadas (cp1252) los asuntos con emoji rompen la
+# impresion de rich. Forzar UTF-8 en stdout/stderr si es posible.
+for _stream in (sys.stdout, sys.stderr):
+    try:
+        _stream.reconfigure(encoding="utf-8")  # type: ignore[union-attr]
+    except (AttributeError, ValueError):
+        pass
+
 console = Console()
 logger = logging.getLogger(__name__)
 LOCAL_TZ = timezone(timedelta(hours=-5), "America/Bogota")
