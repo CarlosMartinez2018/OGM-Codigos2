@@ -17,6 +17,11 @@ __pycache__/
 # Salidas generadas
 exports/
 
+# Frontend (Node)
+node_modules/
+frontend/dist/
+frontend/.vite/
+
 # Editor / OS
 .vscode/
 .idea/

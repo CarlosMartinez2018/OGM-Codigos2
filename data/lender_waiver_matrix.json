@@ -1,0 +1,231 @@
+[
+  {
+    "lender": "JLL (Insurance Servicing)",
+    "lender_aliases": [
+      "JLL",
+      "Jones Lang LaSalle",
+      "JLL Insurance"
+    ],
+    "waiver_type": "Assault & Battery (A&B) sublimit",
+    "triggers": "Lender expects justification when GL has A&B sublimit (e.g., $250k) instead of lender's higher requirement; they probe site security to accept waiver.",
+    "evidence_required_ops": "Per-property security posture: cameras (locations), gated access (Y/N), security guards/contracts (vendor/term), background checks (tenants & employees), areas like gym/clubhouse.",
+    "evidence_required_insurance": "GL endorsement showing A&B sublimit; list of declinations from markets; SAM standalone details if applicable; loss runs.",
+    "documents_expected": [
+      "ACORD 25",
+      "ACORD 101",
+      "GL A&B endorsement pages",
+      "declination letters",
+      "loss runs",
+      "property security fact sheet"
+    ],
+    "actions_to_automate": "Build a structured Security & Liability Fact Sheet per property; pre-attach declinations + loss runs; standardize A&B wording in responses.",
+    "waiver_pack": "ACORD 25 + 101, GL A&B endorsement page, Declination letters (2-3+), Loss runs (2-3 yrs), Security Fact Sheet (cameras/gates/guards), Background-check policy excerpt"
+  },
+  {
+    "lender": "JLL (Insurance Servicing)",
+    "lender_aliases": [
+      "JLL",
+      "Jones Lang LaSalle",
+      "JLL Insurance"
+    ],
+    "waiver_type": "Sexual Abuse & Molestation (SAM)",
+    "triggers": "If GL/excess is silent or excludes SAM, JLL wants proof of standalone SAM and operational controls; they may accept waiver with evidences.",
+    "evidence_required_ops": "Security measures; hiring & background-check practices; access controls; camera coverage in relevant areas.",
+    "evidence_required_insurance": "Standalone SAM policy (e.g., $2M); GL/excess endorsements noting silence/exclusions; loss runs.",
+    "documents_expected": [
+      "ACORD 25",
+      "ACORD 101",
+      "loss runs",
+      "security summary"
+    ],
+    "actions_to_automate": "Surface SAM policy on ACORD 101; bundle SAM policy PDF; include security controls page.",
+    "waiver_pack": "ACORD 25 + 101, Standalone SAM policy, Loss runs, Security controls one-pager, Endorsement excerpts"
+  },
+  {
+    "lender": "JLL (Insurance Servicing)",
+    "lender_aliases": [
+      "JLL",
+      "Jones Lang LaSalle",
+      "JLL Insurance"
+    ],
+    "waiver_type": "Equipment Breakdown (EB) limit",
+    "triggers": "JLL requires EB = 100% insurable value; flags $1M EB as insufficient; waiver may be considered with asset-level rationale while endorsement is pursued.",
+    "evidence_required_ops": "Construction/engineering memo listing central vs distributed equipment, nameplate capacities, replacement cost by building, HVAC distribution specifics.",
+    "evidence_required_insurance": "Property policy EB endorsement; SOV with EB-relevant assets; guideline reference and variance memo.",
+    "documents_expected": [
+      "ACORD 28",
+      "ACORD 101",
+      "SOV",
+      "engineering memo",
+      "underwriter correspondence"
+    ],
+    "actions_to_automate": "Create EB-by-property matrix; auto-generate memo from construction data; flag gaps and draft variance note.",
+    "waiver_pack": "ACORD 28 + 101, SOV equipment pages, Construction/engineering memo, EB endorsement page, Variance/explanation note"
+  },
+  {
+    "lender": "Capital One (Servicing)",
+    "lender_aliases": [
+      "Capital One",
+      "CapOne",
+      "Capital One Servicing"
+    ],
+    "waiver_type": "Full Policy Package timing",
+    "triggers": "Capital One issues Non-Compliance if full policy documents aren't delivered within 90 days of renewal; waiver/forbearance needs clear intent and interim evidence.",
+    "evidence_required_ops": "Ops proof is minimal; focus is on document completeness and correct mortgagee wording; ensure property address clarity.",
+    "evidence_required_insurance": "Full policy for each line (GL, Excess/Umbrella, Property, Terror); corrected Additional Insured clause; SOV with buildings/units.",
+    "documents_expected": [
+      "ACORD 25",
+      "ACORD 28",
+      "SOV"
+    ],
+    "actions_to_automate": "Create a policy-delivery tracker; auto-send interim COIs/SOV + commitment note; keep AI clause library for Fannie/Freddie variants.",
+    "waiver_pack": "ACORD 25 + 28 + 101, SOV (stories/units), AI clause (Capital One/Freddie wording), Policy delivery commitment letter, Full policy PDFs (when received)"
+  },
+  {
+    "lender": "Freddie Mac (via JLL Real Estate Capital)",
+    "lender_aliases": [
+      "Freddie Mac",
+      "Freddie",
+      "JLL Real Estate Capital",
+      "FHLMC"
+    ],
+    "waiver_type": "Additional Insured/Mortgagee wording",
+    "triggers": "Freddie is strict on ISAOA/ATIMA wording; non-conforming wording triggers deficiency; waiver is essentially acceptance after correction.",
+    "evidence_required_ops": "Ops evidence not central; it's a documentation/wording conformance issue.",
+    "evidence_required_insurance": "COIs reflecting Freddie's exact AI clause; terrorism shown properly (often on ACORD 101).",
+    "documents_expected": [
+      "COI",
+      "SOV",
+      "terrorism note"
+    ],
+    "actions_to_automate": "Maintain Freddie-specific clause text; pre-validate mortgage block on every COI.",
+    "waiver_pack": "COI with Freddie wording, SOV, ACORD 101 Terrorism note, Change log showing correction"
+  },
+  {
+    "lender": "Grandbridge / KeyBank / Wells Fargo Trustee chain",
+    "lender_aliases": [
+      "Grandbridge",
+      "KeyBank",
+      "Wells Fargo",
+      "Grandbridge/KeyBank",
+      "Wells Fargo Trustee",
+      "KeyBank Trustee"
+    ],
+    "waiver_type": "OL / BI / EPI specifics",
+    "triggers": "Trustee chain pushes on OL A/B/C structure and BI/EPI length; waivers hinge on showing policy structure meets or offsets lender intent.",
+    "evidence_required_ops": "Ops tie-in minimal; if BI relies on ops resiliency, add short explanation (e.g., repair timelines).",
+    "evidence_required_insurance": "Property policy with OL A/B/C (e.g., 10% each) and BI waiting period; evidence that structure equals lender requirement; SOV.",
+    "documents_expected": [
+      "ACORD 28",
+      "policy excerpts for OL & BI",
+      "SOV"
+    ],
+    "actions_to_automate": "Pre-bake an OL/BI mapping sheet; include BI waiting-period explanation; add SOV page refs.",
+    "waiver_pack": "ACORD 28, OL/BI endorsement pages, SOV pages, OL/BI mapping one-pager"
+  },
+  {
+    "lender": "Berkadia",
+    "lender_aliases": [
+      "Berkadia"
+    ],
+    "waiver_type": "Invoice components (Excess/Terrorism) & Address",
+    "triggers": "Berkadia accepts payment when invoices clearly state Terrorism and Excess components and property address matches loan files; otherwise requests clarifications (functioning as soft waiver).",
+    "evidence_required_ops": "Ops: confirm correct physical address; confirm any escrow routing instructions.",
+    "evidence_required_insurance": "Invoice with explicit lines for Property/GL/Umbrella/Excess/Terrorism; ACORDs for evidence; address on invoice.",
+    "documents_expected": [
+      "Invoice",
+      "ACORD 25",
+      "ACORD 28",
+      "SOV",
+      "paid receipt"
+    ],
+    "actions_to_automate": "Use an invoice template with required lines; auto-attach SOV address rows; add \"Excess included\" and \"Terrorism included\" flags.",
+    "waiver_pack": "Invoice with component flags, ACORD 25/28, SOV address rows, Paid receipt (if applicable)"
+  },
+  {
+    "lender": "NEWMARK (MCM Servicing)",
+    "lender_aliases": [
+      "NEWMARK",
+      "Newmark",
+      "MCM Servicing",
+      "Newmark MCM"
+    ],
+    "waiver_type": "Address / Excess lines",
+    "triggers": "NEWMARK pushes for corrected property addresses and explicit Excess line items; they'll accept after documentation aligns (waiver by correction).",
+    "evidence_required_ops": "Ops: cross-check SOV row numbers for each address; confirm parcel/building lists.",
+    "evidence_required_insurance": "Revised invoice showing Excess; SOV rows confirming addresses; ACORDs if needed.",
+    "documents_expected": [
+      "Revised invoice",
+      "SOV"
+    ],
+    "actions_to_automate": "Embed SOV row links in replies; standardize invoice fields per NEWMARK preferences.",
+    "waiver_pack": "Revised invoice (Excess line), SOV address rows, ACORDs (if requested)"
+  },
+  {
+    "lender": "Greystone",
+    "lender_aliases": [
+      "Greystone"
+    ],
+    "waiver_type": "ACORD-gate for payment & Umbrella clarity",
+    "triggers": "Greystone needs ACORD 25/28 before releasing payment and clarity on whether Umbrella is included in GL totals.",
+    "evidence_required_ops": "Ops: none beyond confirming payer contacts; ensure invoice/COI alignment.",
+    "evidence_required_insurance": "ACORD 25/28; invoice with GL vs Umbrella breakout; paid receipt as needed.",
+    "documents_expected": [
+      "ACORD 25",
+      "ACORD 28"
+    ],
+    "actions_to_automate": "ACORD 25/28, Invoice with GL/Umbrella breakout",
+    "waiver_pack": "ACORD 25/28, Invoice with GL/Umbrella breakout, Paid receipt (if applicable)"
+  },
+  {
+    "lender": "CBRE (Insurance Servicing)",
+    "lender_aliases": [
+      "CBRE",
+      "CBRE Insurance",
+      "CBRE Servicing"
+    ],
+    "waiver_type": "General compliance deficiency",
+    "triggers": "CBRE services loans for Freddie Mac, Fannie Mae, and other lenders. They flag deficiencies including mortgagee wording, address mismatches, Equipment Breakdown limits, missing documents, and policy coverage gaps.",
+    "evidence_required_ops": "Property address verification; mortgagee/AI clause confirmation; SOV with correct addresses and building details.",
+    "evidence_required_insurance": "Updated COIs (ACORD 25/28/101); corrected mortgagee wording; EB endorsement; SOV; full policies when available; paid receipts.",
+    "documents_expected": [
+      "ACORD 25",
+      "ACORD 28",
+      "ACORD 101",
+      "SOV",
+      "corrected mortgagee clause",
+      "EB endorsement",
+      "paid receipt",
+      "full policies"
+    ],
+    "actions_to_automate": "Pre-validate mortgagee wording; auto-attach SOV address rows; track EB endorsement status; bundle COIs with every response.",
+    "waiver_pack": "ACORD 25/28/101, SOV, Corrected mortgagee clause, EB endorsement (if applicable), Paid receipt, Full policies"
+  },
+  {
+    "lender": "M&T Bank",
+    "lender_aliases": [
+      "M&T",
+      "M&T Bank",
+      "MTB",
+      "mtb.com"
+    ],
+    "waiver_type": "Multi-issue compliance (A&B / SAM / BI / OL)",
+    "triggers": "M&T Bank issues First/Second Notices of Non-Compliance covering multiple requirements: A&B sublimits, SAM coverage, BI waiting period, OL coverage, aggregate deductibles, umbrella details, terrorism confirmation, and Master Program Questionnaire completion.",
+    "evidence_required_ops": "Per-property security details (for A&B); background check policies; confirmation of BI waiting period (72hr max); aggregate deductible details; total location count on GL policy.",
+    "evidence_required_insurance": "ACORD 25 + 28 + 101; GL with A&B sublimit endorsement; standalone SAM policy; BI/EPI endorsement; OL A/B/C confirmation; Umbrella deductible confirmation; Terrorism evidence; SOV.",
+    "documents_expected": [
+      "ACORD 25",
+      "ACORD 28",
+      "ACORD 101",
+      "SOV",
+      "A&B endorsement pages",
+      "SAM policy",
+      "declination letters",
+      "BI endorsement",
+      "OL endorsement",
+      "Master Program Questionnaire"
+    ],
+    "actions_to_automate": "Build multi-issue response template; pre-fill A&B security details; auto-attach SAM policy; confirm BI/OL/Umbrella parameters; bundle all COIs + endorsements per property.",
+    "waiver_pack": "ACORD 25/28/101, SOV, A&B endorsement, SAM policy, BI/OL endorsements, Declination letters, Security fact sheet, Master Program Questionnaire response"
+  }
+]
