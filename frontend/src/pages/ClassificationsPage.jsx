@@ -11,8 +11,10 @@ import Modal from '../components/Modal'
 const STATUS_TONE = { classified: 'warn', reviewed: 'ok', corrected: 'neutral' }
 
 // Tabs-container: mapea cada tab al campo `status` real del backend.
+// 'classified' = recién clasificado por la IA, pendiente de revisión humana.
 // REJECTED aún no existe en backend (Fase 2) → queda vacío con Empty.
 const TABS = [
+  { key: 'PENDING', label: 'Por revisar', status: 'classified' },
   { key: 'APPROVED', label: 'Aprobado', status: 'reviewed' },
   { key: 'CORRECTED', label: 'Corregido', status: 'corrected' },
   { key: 'REJECTED', label: 'Rechazado', status: '__rejected__' },
@@ -258,7 +260,7 @@ export default function ClassificationsPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [level, setLevel] = useState('')
-  const [tab, setTab] = useState('APPROVED')
+  const [tab, setTab] = useState('PENDING')
   const [selected, setSelected] = useState(null)
   const [correcting, setCorrecting] = useState(null)
 
