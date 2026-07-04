@@ -47,6 +47,17 @@ export function Stamp({ tone = 'neutral', children }) {
   return <span className={`stamp stamp-${tone}`}>{children}</span>
 }
 
+// Botón de acción con icono (afordancia explícita). icon = componente lucide.
+export function IconButton({ icon: Icon, label, onClick, tone = 'ghost' }) {
+  const cls = tone === 'coral' ? 'btn btn-coral' : tone === 'primary' ? 'btn btn-primary' : 'btn btn-ghost'
+  return (
+    <button className={cls} onClick={onClick} title={label} aria-label={label}>
+      {Icon && <Icon size={15} strokeWidth={2} />}
+      <span>{label}</span>
+    </button>
+  )
+}
+
 // KPI tipo readout de terminal: número mono grande, etiqueta en versalitas, lomo latón.
 export function Kpi({ label, value, sub, tone = 'coral' }) {
   const tick = tone === 'coral' ? 'border-coral' : tone === 'stop' ? 'border-stop' : 'border-navy'
