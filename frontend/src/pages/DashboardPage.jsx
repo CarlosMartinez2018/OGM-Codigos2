@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react'
+import { Mail, Sparkles, AlertTriangle, Building2 } from 'lucide-react'
 import { metaApi, classificationsApi } from '../lib/api'
-import { Kpi, Bar, Card, PageHeader, Spinner, Loading, Empty, ErrorBox } from '../components/ui'
+import { StatCard, StatStrip, Bar, Card, PageHeader, Spinner, Loading, Empty, ErrorBox } from '../components/ui'
 
 export default function DashboardPage() {
   const [stats, setStats] = useState(null)
@@ -92,20 +93,18 @@ export default function DashboardPage() {
             </div>
           </section>
 
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-            <Kpi label="Correos" value={stats?.total_emails ?? 0} sub="en bandeja de producción" />
-            <Kpi label="Clasificados" value={totalCls} sub="sobrevivientes del pre-filtrado" />
-            <Kpi
-              label="Confianza media"
-              value={stats?.avg_confidence != null ? `${Math.round(stats.avg_confidence * 100)}%` : '—'}
-            />
-            <Kpi
+          <StatStrip>
+            <StatCard icon={Mail} tone="navy" label="Correos" value={stats?.total_emails ?? 0} sub="en bandeja de producción" />
+            <StatCard icon={Sparkles} tone="coral" label="Clasificados" value={totalCls} sub="sobrevivientes del pre-filtrado" />
+            <StatCard icon={Building2} tone="ok" label="Lenders activos" value={byStatus.reduce((a, [, n]) => a + n, 0)} sub="dominios mapeados" />
+            <StatCard
+              icon={AlertTriangle}
+              tone={pendingReviews > 0 ? 'stop' : 'ok'}
               label="En revisión"
               value={pendingReviews}
               sub="cola manual pendiente"
-              tone={pendingReviews > 0 ? 'stop' : 'coral'}
             />
-          </div>
+          </StatStrip>
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
             <Card title="Clasificaciones por lender">

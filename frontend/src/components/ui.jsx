@@ -73,6 +73,39 @@ export function Kpi({ label, value, sub, tone = 'coral' }) {
   )
 }
 
+// Tarjeta de estadística limpia: chip de icono + etiqueta + número display.
+// Menos recargada que Kpi (sin lomo grueso). tone controla el color del chip.
+const STAT_TONES = {
+  navy: 'bg-navy/[0.06] text-navy',
+  coral: 'bg-coralsoft text-coraldim',
+  ok: 'bg-ok/10 text-ok',
+  warn: 'bg-warn/10 text-warn',
+  stop: 'bg-stop/10 text-stop',
+}
+
+export function StatCard({ icon: Icon, label, value, sub, tone = 'navy' }) {
+  return (
+    <div className="card card-hover px-5 py-4">
+      <div className="flex items-center justify-between gap-2">
+        <p className="eyebrow">{label}</p>
+        {Icon && (
+          <span className={`grid place-items-center w-8 h-8 rounded-lg ${STAT_TONES[tone] || STAT_TONES.navy}`}>
+            <Icon size={16} strokeWidth={1.9} />
+          </span>
+        )}
+      </div>
+      <p className="display text-[2rem] leading-none text-navy mt-3 tnum">{value ?? '—'}</p>
+      {sub && <p className="text-xs text-muted mt-1.5">{sub}</p>}
+    </div>
+  )
+}
+
+// Rejilla responsiva para un strip de StatCards.
+export function StatStrip({ children, cols = 4 }) {
+  const grid = cols === 3 ? 'lg:grid-cols-3' : 'lg:grid-cols-4'
+  return <div className={`grid grid-cols-2 ${grid} gap-3`}>{children}</div>
+}
+
 export function Bar({ label, count, total, mono = false }) {
   const pct = total > 0 ? Math.round((count / total) * 100) : 0
   return (
