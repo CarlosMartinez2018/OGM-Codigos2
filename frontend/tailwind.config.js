@@ -14,6 +14,9 @@ export default {
         // Neutros
         paper:    '#F5F6F8',
         surface:  '#FFFFFF',
+        surfacealt:'#FAFBFC',
+        navysoft: '#2A3565',
+        coralsoft:'#F4E3DE',
         ink:      '#0B1220',
         muted:    '#667085',
         faint:    '#98A2B3',
@@ -32,6 +35,8 @@ export default {
       boxShadow: {
         card: '0 1px 2px rgba(20,26,52,0.05), 0 1px 1px rgba(20,26,52,0.03)',
         rail: '2px 0 12px rgba(20,26,52,0.08)',
+        pop:  '0 8px 24px rgba(20,26,52,0.12)',
+        focus:'0 0 0 3px rgba(226,102,75,0.30)',
       },
       letterSpacing: {
         label: '0.16em',
