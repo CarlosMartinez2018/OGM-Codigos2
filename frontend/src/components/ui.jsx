@@ -85,7 +85,7 @@ const STAT_TONES = {
 
 export function StatCard({ icon: Icon, label, value, sub, tone = 'navy' }) {
   return (
-    <div className="card card-hover px-5 py-4">
+    <div className="card px-5 py-4">
       <div className="flex items-center justify-between gap-2">
         <p className="eyebrow">{label}</p>
         {Icon && (

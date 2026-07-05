@@ -437,6 +437,8 @@ def _derive_estado(cls, reviews: list) -> str:
 async def inbox(
     tab: str = Query(default="general"),
     search: Optional[str] = None,
+    from_date: Optional[str] = Query(default=None, description="YYYY-MM-DD (inclusive)"),
+    to_date: Optional[str] = Query(default=None, description="YYYY-MM-DD (inclusive)"),
     limit: int = Query(default=50, ge=1, le=500),
     offset: int = Query(default=0, ge=0),
     session: AsyncSession = Depends(get_session),
@@ -461,11 +463,21 @@ async def inbox(
         rev_by_mid.setdefault(r.message_id, []).append(r)
 
     term = (search or "").lower().strip()
+    dfrom = (from_date or "").strip() or None
+    dto = (to_date or "").strip() or None
     counts = {"general": 0, "por_revisar": 0, "descartado": 0, "contestado": 0}
     items: list[dict[str, Any]] = []
     for e in emails:
         if term and term not in (e.subject or "").lower() and term not in (e.sender or "").lower():
             continue
+        if dfrom or dto:
+            d = e.received_date.date().isoformat() if e.received_date else None
+            if d is None:
+                continue
+            if dfrom and d < dfrom:
+                continue
+            if dto and d > dto:
+                continue
         cls = cls_by_mid.get(e.message_id)
         revs = rev_by_mid.get(e.message_id, [])
         estado = _derive_estado(cls, revs)

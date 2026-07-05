@@ -266,27 +266,32 @@ export default function EmailsPage() {
   const refreshStats = useCallback(() => { metaApi.stats().then(setStats).catch(() => {}) }, [])
   useEffect(() => { refreshStats() }, [refreshStats])
 
-  const load = useCallback((q, off, tb) => {
+  const load = useCallback((q, off, tb, df, dt) => {
     setLoading(true)
-    inboxApi.list({ limit: PAGE, offset: off, search: q, tab: tb })
+    inboxApi.list({ limit: PAGE, offset: off, search: q, tab: tb, from_date: df, to_date: dt })
       .then(setData)
       .catch((e) => setError(e.message))
       .finally(() => setLoading(false))
   }, [])
 
-  useEffect(() => { load(term, offset, tab) }, [load, term, offset, tab])
+  useEffect(() => { load(term, offset, tab, fromDate, toDate) }, [load, term, offset, tab, fromDate, toDate])
 
   const reloadFromOutlook = async () => {
     setReloading(true); setError('')
     try {
       await emailsApi.reload(false)
-      load(term, 0, tab)
+      setOffset(0)
+      load(term, 0, tab, fromDate, toDate)
       refreshStats()
     } catch (e) { setError(e.message) } finally { setReloading(false) }
   }
 
   const onSearch = (e) => { e.preventDefault(); setOffset(0); setTerm(search) }
   const changeTab = (k) => { setOffset(0); setTab(k) }
+  const changeFrom = (v) => { setOffset(0); setFromDate(v) }
+  const changeTo = (v) => { setOffset(0); setToDate(v) }
+  const clearDates = () => { setOffset(0); setFromDate(''); setToDate('') }
+  const hasDateFilter = fromDate || toDate
 
   const from = data.total === 0 ? 0 : offset + 1
   const to = Math.min(offset + PAGE, data.total)
@@ -296,39 +301,38 @@ export default function EmailsPage() {
     : 0
   const withAttachments = data.items.filter((e) => e.has_attachments).length
 
-  const visible = data.items.filter((e) => {
-    if (!e.received_date) return true
-    const d = e.received_date.slice(0, 10) // YYYY-MM-DD del ISO
-    if (fromDate && d < fromDate) return false
-    if (toDate && d > toDate) return false
-    return true
-  })
-
   return (
     <div className="p-8 space-y-6 max-w-6xl">
       <PageHeader
         title="Bandeja de producción"
-        subtitle={`${data.total} correos ingestados.`}
+        subtitle={`${data.total} correos${hasDateFilter || term ? ' (filtrados)' : ' ingestados'}.`}
         actions={
-          <div className="flex flex-wrap items-center gap-2">
-            <form onSubmit={onSearch} className="flex gap-2">
-              <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Asunto o remitente…" className="field w-64" />
-              <button className="btn btn-ghost">Buscar</button>
-            </form>
-            <label className="flex items-center gap-1.5 text-xs text-muted">
-              <span className="eyebrow">Desde</span>
-              <input type="date" value={fromDate} onChange={(e) => setFromDate(e.target.value)} max={toDate || undefined} className="field w-40" />
-            </label>
-            <label className="flex items-center gap-1.5 text-xs text-muted">
-              <span className="eyebrow">Hasta</span>
-              <input type="date" value={toDate} onChange={(e) => setToDate(e.target.value)} min={fromDate || undefined} className="field w-40" />
-            </label>
-            <IconButton icon={RefreshCw} label={reloading ? 'Recargando…' : 'Recargar'} onClick={reloadFromOutlook} />
-          </div>
+          <IconButton icon={RefreshCw} label={reloading ? 'Recargando…' : 'Recargar correos'} onClick={reloadFromOutlook} />
         }
       />
 
       <ErrorBox message={error} />
+
+      {/* Toolbar de filtros (separado de "Recargar correos") */}
+      <div className="flex flex-wrap items-end gap-3">
+        <form onSubmit={onSearch} className="flex gap-2">
+          <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Asunto o remitente…" className="field w-64" />
+          <button className="btn btn-ghost">Buscar</button>
+        </form>
+        <div className="flex items-end gap-2">
+          <label className="flex flex-col gap-1 text-xs text-muted">
+            <span className="eyebrow">Desde</span>
+            <input type="date" value={fromDate} onChange={(e) => changeFrom(e.target.value)} max={toDate || undefined} className="field w-40" />
+          </label>
+          <label className="flex flex-col gap-1 text-xs text-muted">
+            <span className="eyebrow">Hasta</span>
+            <input type="date" value={toDate} onChange={(e) => changeTo(e.target.value)} min={fromDate || undefined} className="field w-40" />
+          </label>
+          {hasDateFilter && (
+            <button onClick={clearDates} className="btn btn-ghost" title="Quitar filtro de fecha">Limpiar</button>
+          )}
+        </div>
+      </div>
 
       <StatStrip>
         <StatCard icon={Mail} tone="navy" label="Total correos" value={stats?.total_emails ?? data.total} sub="ingestados en producción" />
@@ -358,7 +362,7 @@ export default function EmailsPage() {
               </tr>
             </thead>
             <tbody>
-              {visible.map((e) => {
+              {data.items.map((e) => {
                 const est = ESTADO[e.estado] || ESTADO.sin_procesar
                 return (
                   <tr key={e.id} className="cursor-pointer" onClick={() => setSelected(e)}>
@@ -377,7 +381,7 @@ export default function EmailsPage() {
                   </tr>
                 )
               })}
-              {visible.length === 0 && (
+              {data.items.length === 0 && (
                 <tr><td colSpan={5}><Empty>Sin correos en este estado.</Empty></td></tr>
               )}
             </tbody>
