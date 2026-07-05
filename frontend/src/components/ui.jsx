@@ -58,34 +58,71 @@ export function IconButton({ icon: Icon, label, onClick, tone = 'ghost' }) {
   )
 }
 
-// KPI tipo readout de terminal: número mono grande, etiqueta en versalitas, lomo latón.
+// KPI tipo readout de terminal: número display grande, etiqueta en versalitas, lomo latón.
 export function Kpi({ label, value, sub, tone = 'coral' }) {
   const tick = tone === 'coral' ? 'border-coral' : tone === 'stop' ? 'border-stop' : 'border-navy'
+  const accent = tone === 'stop' ? 'text-stop' : 'text-navy'
   return (
-    <div className={`card px-5 py-4 border-l-2 ${tick}`}>
+    <div className={`card card-hover px-5 py-4 border-l-[3px] ${tick}`}>
       <p className="eyebrow">{label}</p>
-      <p className="text-[2rem] leading-none font-mono font-medium text-navy mt-2 tnum">
+      <p className={`display text-[2.4rem] leading-none ${accent} mt-2.5 tnum`}>
         {value ?? '—'}
       </p>
+      {sub && <p className="text-xs text-muted mt-2">{sub}</p>}
+    </div>
+  )
+}
+
+// Tarjeta de estadística limpia: chip de icono + etiqueta + número display.
+// Menos recargada que Kpi (sin lomo grueso). tone controla el color del chip.
+const STAT_TONES = {
+  navy: 'bg-navy/[0.06] text-navy',
+  coral: 'bg-coralsoft text-coraldim',
+  ok: 'bg-ok/10 text-ok',
+  warn: 'bg-warn/10 text-warn',
+  stop: 'bg-stop/10 text-stop',
+}
+
+export function StatCard({ icon: Icon, label, value, sub, tone = 'navy' }) {
+  return (
+    <div className="card px-5 py-4">
+      <div className="flex items-center justify-between gap-2">
+        <p className="eyebrow">{label}</p>
+        {Icon && (
+          <span className={`grid place-items-center w-8 h-8 rounded-lg ${STAT_TONES[tone] || STAT_TONES.navy}`}>
+            <Icon size={16} strokeWidth={1.9} />
+          </span>
+        )}
+      </div>
+      <p className="display text-[2rem] leading-none text-navy mt-3 tnum">{value ?? '—'}</p>
       {sub && <p className="text-xs text-muted mt-1.5">{sub}</p>}
     </div>
   )
 }
 
+// Rejilla responsiva para un strip de StatCards.
+export function StatStrip({ children, cols = 4 }) {
+  const grid = cols === 3 ? 'lg:grid-cols-3' : 'lg:grid-cols-4'
+  return <div className={`grid grid-cols-2 ${grid} gap-3`}>{children}</div>
+}
+
 export function Bar({ label, count, total, mono = false }) {
   const pct = total > 0 ? Math.round((count / total) * 100) : 0
   return (
-    <div className="flex items-center gap-3">
+    <div className="flex items-center gap-3 group">
       <span
         className={`w-40 shrink-0 truncate text-sm ${mono ? 'font-mono text-[13px] text-navy' : 'text-ink'}`}
         title={label}
       >
         {label}
       </span>
-      <div className="flex-1 h-1.5 rounded-full bg-line overflow-hidden">
-        <div className="h-full rounded-full bg-navy" style={{ width: `${pct}%` }} />
+      <div className="flex-1 h-2 rounded-full bg-line overflow-hidden">
+        <div
+          className="h-full rounded-full transition-[width] duration-700 ease-out"
+          style={{ width: `${pct}%`, background: 'linear-gradient(90deg, #1C2445, #E2664B)' }}
+        />
       </div>
-      <span className="w-8 text-right font-mono text-xs text-muted tnum">{count}</span>
+      <span className="w-9 text-right font-mono text-xs text-muted tnum group-hover:text-coral transition-colors">{count}</span>
     </div>
   )
 }
@@ -94,8 +131,8 @@ export function Card({ title, action, children, className = '' }) {
   return (
     <section className={`card overflow-hidden ${className}`}>
       {(title || action) && (
-        <div className="flex items-center justify-between px-5 py-3.5 border-b border-line">
-          <h2 className="text-sm font-semibold text-navy">{title}</h2>
+        <div className="flex items-center justify-between px-5 py-3.5 border-b border-line bg-surfacealt">
+          <h2 className="display text-[15px] text-navy">{title}</h2>
           {action}
         </div>
       )}
@@ -106,10 +143,13 @@ export function Card({ title, action, children, className = '' }) {
 
 export function PageHeader({ title, subtitle, actions }) {
   return (
-    <div className="flex items-start justify-between gap-4 flex-wrap">
+    <div className="flex items-start justify-between gap-4 flex-wrap pb-1">
       <div>
-        <h1 className="text-xl font-semibold text-navy tracking-tight">{title}</h1>
-        {subtitle && <p className="text-sm text-muted mt-1">{subtitle}</p>}
+        <div className="flex items-center gap-2.5">
+          <span className="h-6 w-1 rounded-full bg-coral" aria-hidden="true" />
+          <h1 className="display text-[1.75rem] leading-none text-navy">{title}</h1>
+        </div>
+        {subtitle && <p className="text-sm text-muted mt-2 ml-3.5 max-w-[65ch]">{subtitle}</p>}
       </div>
       {actions && <div className="flex items-center gap-2">{actions}</div>}
     </div>

@@ -17,6 +17,9 @@ __pycache__/
 # Salidas generadas
 exports/
 
+# Contexto de feedback (datos runtime: correcciones/rechazos del operador)
+data/feedback_context.md
+
 # Frontend (Node)
 node_modules/
 frontend/dist/

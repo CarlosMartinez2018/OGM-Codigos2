@@ -25,6 +25,7 @@ from typing import Any, AsyncIterator, Optional
 import httpx
 from fastapi import Depends, FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import Response
 from pydantic import BaseModel
 from sqlalchemy import delete, func, or_, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -33,6 +34,7 @@ from sqlalchemy.orm import selectinload
 from app.core.config import settings
 from app.db.database import async_session, engine, init_db
 from app.db.models import (
+    AppSetting,
     DomainLenderMap,
     EmailClassification,
     EmailReview,
@@ -41,7 +43,7 @@ from app.db.models import (
     ProductionEmail,
     SharePointFile,
 )
-from app.services import lender_approval
+from app.services import feedback_context, lender_approval
 from app.services.llm_classifier import classifier
 from app.services.sharepoint.connector import sharepoint
 
@@ -55,6 +57,15 @@ class CorrectionIn(BaseModel):
     corrected_waiver_type: str
     reviewed_by: str = "operator"
     notes: Optional[str] = None
+
+
+class RejectionIn(BaseModel):
+    comment: str
+    reviewed_by: str = "operator"
+
+
+class SignatureIn(BaseModel):
+    signature: str
 
 
 class ReviewActionIn(BaseModel):
@@ -390,6 +401,155 @@ async def get_email(
     return _email_detail_dict(row)
 
 
+@app.get("/api/v1/emails/{email_id}/thread")
+async def email_thread(
+    email_id: int,
+    session: AsyncSession = Depends(get_session),
+) -> dict[str, Any]:
+    """Hilo de conversacion (iteraciones) al que pertenece el correo.
+
+    Agrupa por conversation_id, ordenado del mas viejo al mas nuevo, con la
+    fecha de cada iteracion (estilo Outlook).
+    """
+    row = await session.get(ProductionEmail, email_id)
+    if row is None:
+        raise HTTPException(404, "Correo no encontrado")
+    conv = row.conversation_id
+    if conv:
+        emails = (await session.scalars(
+            select(ProductionEmail)
+            .where(ProductionEmail.conversation_id == conv)
+            .order_by(ProductionEmail.received_date.asc().nullsfirst())
+        )).all()
+    else:
+        emails = [row]
+    return {
+        "conversation_id": conv,
+        "count": len(emails),
+        "items": [{
+            "id": e.id,
+            "subject": e.subject,
+            "sender": e.sender,
+            "sender_domain": e.sender_domain,
+            "received_date": e.received_date.isoformat() if e.received_date else None,
+            "has_attachments": e.has_attachments,
+            "is_current": e.id == email_id,
+        } for e in emails],
+    }
+
+
+# ---------------------------------------------------------------------------
+# Bandeja unificada: correo + estado derivado (clasificacion + revision)
+# ---------------------------------------------------------------------------
+
+# Prioridad de estado y a que tab pertenece.
+_INBOX_TABS = {
+    "general": None,  # todos
+    "por_revisar": {"por_revisar"},
+    "descartado": {"descartado"},
+    "contestado": {"contestado", "aprobado"},
+}
+
+
+def _derive_estado(cls, reviews: list) -> str:
+    """Estado unificado del correo a partir de su clasificacion y revisiones."""
+    statuses = {r.status for r in reviews}
+    if "PENDIENTE" in statuses:
+        return "por_revisar"
+    if "DESCARTADO" in statuses:
+        return "descartado"
+    if statuses & {"CONTESTADO", "GESTIONADO"}:
+        return "contestado"
+    if cls is not None:
+        if cls.status in ("reviewed", "corrected"):
+            return "aprobado"
+        if cls.status == "rejected":
+            return "rechazado"
+        if cls.status == "classified":
+            return "clasificada"
+    return "sin_procesar"
+
+
+@app.get("/api/v1/inbox")
+async def inbox(
+    tab: str = Query(default="general"),
+    search: Optional[str] = None,
+    from_date: Optional[str] = Query(default=None, description="YYYY-MM-DD (inclusive)"),
+    to_date: Optional[str] = Query(default=None, description="YYYY-MM-DD (inclusive)"),
+    limit: int = Query(default=50, ge=1, le=500),
+    offset: int = Query(default=0, ge=0),
+    session: AsyncSession = Depends(get_session),
+) -> dict[str, Any]:
+    """Bandeja estilo Outlook: cada correo con su estado (clasificada IA /
+    por revisar / descartado / contestado / aprobado). Filtra por tab.
+
+    Volumen actual (~cientos) permite computar el estado en Python.
+    """
+    tab = (tab or "general").lower()
+    wanted = _INBOX_TABS.get(tab, None)
+
+    emails = (await session.scalars(
+        select(ProductionEmail).order_by(ProductionEmail.received_date.desc().nullslast())
+    )).all()
+
+    cls_rows = (await session.scalars(select(EmailClassification))).all()
+    cls_by_mid = {c.message_id: c for c in cls_rows}
+    rev_rows = (await session.scalars(select(EmailReview))).all()
+    rev_by_mid: dict[str, list] = {}
+    for r in rev_rows:
+        rev_by_mid.setdefault(r.message_id, []).append(r)
+
+    term = (search or "").lower().strip()
+    dfrom = (from_date or "").strip() or None
+    dto = (to_date or "").strip() or None
+    counts = {"general": 0, "por_revisar": 0, "descartado": 0, "contestado": 0}
+    items: list[dict[str, Any]] = []
+    for e in emails:
+        if term and term not in (e.subject or "").lower() and term not in (e.sender or "").lower():
+            continue
+        if dfrom or dto:
+            d = e.received_date.date().isoformat() if e.received_date else None
+            if d is None:
+                continue
+            if dfrom and d < dfrom:
+                continue
+            if dto and d > dto:
+                continue
+        cls = cls_by_mid.get(e.message_id)
+        revs = rev_by_mid.get(e.message_id, [])
+        estado = _derive_estado(cls, revs)
+        # Conteo por tab (sobre el universo filtrado por search).
+        counts["general"] += 1
+        for tname, tset in _INBOX_TABS.items():
+            if tset is not None and estado in tset:
+                counts[tname] += 1
+        if wanted is not None and estado not in wanted:
+            continue
+        pend = next((r for r in revs if r.status == "PENDIENTE"), None)
+        rev = pend or (revs[0] if revs else None)
+        items.append({
+            "id": e.id,
+            "message_id": e.message_id,
+            "subject": e.subject,
+            "sender": e.sender,
+            "sender_domain": e.sender_domain,
+            "received_date": e.received_date.isoformat() if e.received_date else None,
+            "has_attachments": e.has_attachments,
+            "estado": estado,
+            "classification": None if cls is None else {
+                "id": cls.id, "lender": cls.lender, "waiver_type": cls.waiver_type,
+                "confidence_level": cls.confidence_level, "status": cls.status,
+            },
+            "review": None if rev is None else {
+                "id": rev.id, "stage": rev.stage, "reason": rev.reason, "status": rev.status,
+            },
+        })
+
+    total = len(items)
+    page = items[offset:offset + limit]
+    return {"total": total, "limit": limit, "offset": offset, "items": page, "counts": counts}
+
+
 # ---------------------------------------------------------------------------
 # Cola de revision manual (email_reviews)
 # ---------------------------------------------------------------------------
@@ -570,6 +730,12 @@ async def correct_classification(
     if row is None:
         raise HTTPException(404, "Clasificacion no encontrada")
 
+    # Registrar en el contexto de feedback ANTES de sobrescribir el par original.
+    feedback_context.append_correction(
+        row.lender, row.waiver_type,
+        body.corrected_lender, body.corrected_waiver_type, body.notes,
+    )
+
     row.corrected_lender = body.corrected_lender
     row.corrected_waiver_type = body.corrected_waiver_type
     row.reviewed_by = body.reviewed_by
@@ -592,6 +758,56 @@ async def correct_classification(
     await session.commit()
     await session.refresh(row)
     return _classification_to_dict(row)
+
+
+@app.post("/api/v1/classifications/{classification_id}/reject")
+async def reject_classification(
+    classification_id: int,
+    body: RejectionIn,
+    session: AsyncSession = Depends(get_session),
+) -> dict[str, Any]:
+    """Rechaza una clasificacion con comentario; alimenta el contexto de feedback."""
+    row = await session.get(EmailClassification, classification_id)
+    if row is None:
+        raise HTTPException(404, "Clasificacion no encontrada")
+
+    feedback_context.append_rejection(row.lender, row.waiver_type, body.comment)
+
+    row.status = "rejected"
+    row.reviewed_by = body.reviewed_by
+    row.correction_notes = body.comment
+    row.updated_at = datetime.now(timezone.utc)
+    await session.commit()
+    await session.refresh(row)
+    return _classification_to_dict(row)
+
+
+@app.get("/api/v1/feedback-context")
+async def get_feedback_context() -> dict[str, Any]:
+    """Devuelve el contexto de feedback acumulado (correcciones + rechazos)."""
+    return {"content": feedback_context.read_context()}
+
+
+@app.get("/api/v1/settings/signature")
+async def get_signature(session: AsyncSession = Depends(get_session)) -> dict[str, Any]:
+    """Firma del operador (para el composer de respuesta manual)."""
+    row = await session.get(AppSetting, "signature")
+    return {"signature": row.value if row else ""}
+
+
+@app.put("/api/v1/settings/signature")
+async def put_signature(
+    body: SignatureIn,
+    session: AsyncSession = Depends(get_session),
+) -> dict[str, Any]:
+    row = await session.get(AppSetting, "signature")
+    if row is None:
+        session.add(AppSetting(key="signature", value=body.signature))
+    else:
+        row.value = body.signature
+        row.updated_at = datetime.now(timezone.utc)
+    await session.commit()
+    return {"signature": body.signature}
 
 
 @app.post("/api/v1/classify/run")
@@ -617,6 +833,35 @@ async def run_classification(
             }
             for pe, res in results
         ],
+    }
+
+
+@app.post("/api/v1/emails/reload")
+async def reload_emails(
+    reclassify: bool = Query(default=False, description="reprocesa incluso los ya clasificados"),
+    session: AsyncSession = Depends(get_session),
+) -> dict[str, Any]:
+    """Ingesta correos de Outlook (todas las fechas) y clasifica los pendientes.
+
+    Es el 'Recargar' de la Bandeja: trae el buzon completo y corre el pipeline.
+    """
+    from app.services.read_emails import read_outlook_emails, save_to_db
+
+    try:
+        emails = await read_outlook_emails(filter_today=False)
+    except ValueError as exc:  # Outlook no configurado
+        raise HTTPException(400, str(exc))
+    except ConnectionError as exc:  # error de Graph
+        raise HTTPException(502, str(exc))
+
+    processed, total = await save_to_db(emails)
+    results = await classifier.classify_pending_production_emails(
+        session, limit=0, reclassify=reclassify
+    )
+    return {
+        "ingested": processed,
+        "total_emails": total,
+        "classified": len(results),
     }
 
 
@@ -843,6 +1088,34 @@ async def sharepoint_files(
             "items": [_sp_file_to_dict(r) for r in rows]}
 
 
+@app.get("/api/v1/sharepoint/files/{file_id}/content")
+async def sharepoint_file_content(
+    file_id: str,
+    session: AsyncSession = Depends(get_session),
+) -> Response:
+    """Descarga el archivo real desde SharePoint (proxy) para verlo en el visor.
+
+    Trae los bytes via Graph al vuelo (sin duplicar storage) y los sirve inline.
+    """
+    row = await session.get(SharePointFile, file_id)
+    if row is None:
+        raise HTTPException(404, "Archivo no encontrado en el inventario")
+    if row.is_folder:
+        raise HTTPException(400, "El item es una carpeta, no un archivo")
+    if not sharepoint.is_configured:
+        raise HTTPException(503, "SharePoint no configurado")
+    try:
+        content, ctype = await sharepoint.download_item(row.drive_id, row.id)
+    except ConnectionError as exc:
+        raise HTTPException(502, str(exc))
+    ascii_name = (row.name or "archivo").encode("ascii", "ignore").decode() or "archivo"
+    return Response(
+        content=content,
+        media_type=row.mime_type or ctype,
+        headers={"Content-Disposition": f'inline; filename="{ascii_name}"'},
+    )
+
+
 # ---------------------------------------------------------------------------
 # Comparacion: documentos esperados (BD) vs archivos en SharePoint
 # ---------------------------------------------------------------------------
@@ -920,9 +1193,11 @@ async def _match_documents(session: AsyncSession, docs: list[str]) -> list[dict[
             else:
                 continue
             matches.append((rank, extra, {
+                "id": f.id,
                 "name": f.name,
                 "drive_name": f.drive_name,
                 "web_url": f.web_url,
+                "file_extension": f.file_extension,
                 "match_type": match_type,
             }))
         matches.sort(key=lambda m: (m[0], m[1]))

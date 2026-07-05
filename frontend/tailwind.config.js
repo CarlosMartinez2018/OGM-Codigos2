@@ -27,7 +27,9 @@ export default {
         stop:     '#B42318',
       },
       fontFamily: {
-        // Helvetica Neue = tipografia real de la marca (local, sin webfont)
+        // Display = Space Grotesk (titulares con caracter, tecnica)
+        display: ['"Space Grotesk"', '"Helvetica Neue"', 'system-ui', 'sans-serif'],
+        // Helvetica Neue = tipografia de cuerpo de la marca
         sans: ['"Helvetica Neue"', 'Helvetica', 'Arial', 'system-ui', 'sans-serif'],
         // Mono para tokens de maquina (dominios, stages, ids, %)
         mono: ['"IBM Plex Mono"', 'ui-monospace', 'SFMono-Regular', 'monospace'],

@@ -1,7 +1,8 @@
 import { useState, useEffect, useCallback, useMemo } from 'react'
 import { lendersApi } from '../lib/api'
 import Tabs from '../components/Tabs'
-import { Stamp, stampTone, PageHeader, Spinner, Loading, Empty, ErrorBox } from '../components/ui'
+import { Stamp, stampTone, PageHeader, Spinner, Loading, Empty, ErrorBox, StatCard, StatStrip } from '../components/ui'
+import { Building2, CheckCircle2, Clock, Ban } from 'lucide-react'
 
 // Campo de estado real (api.py): l.status ∈ APROBADO | POR_APROBAR | NO_APROBADO.
 // Blacklist = NO_APROBADO.
@@ -67,6 +68,13 @@ export default function LendersPage() {
           />
         }
       />
+
+      <StatStrip>
+        <StatCard icon={Building2} tone="navy" label="Total" value={data.total} sub="Dominios registrados" />
+        <StatCard icon={CheckCircle2} tone="ok" label="Aprobados" value={counts.APROBADO} sub="Reprocesan su correo" />
+        <StatCard icon={Clock} tone="warn" label="Por aprobar" value={counts.POR_APROBAR} sub="Pendientes de revisión" />
+        <StatCard icon={Ban} tone="stop" label="Blacklist" value={counts.NO_APROBADO} sub="No aprobados" />
+      </StatStrip>
 
       <ErrorBox message={error} />
 

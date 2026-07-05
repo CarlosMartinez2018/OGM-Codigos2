@@ -105,6 +105,21 @@ class SharePointConnector:
             )
         return r.json()
 
+    async def download_item(self, drive_id: str, item_id: str) -> tuple[bytes, str]:
+        """Descarga el contenido de un driveItem. Devuelve (bytes, content_type).
+
+        Graph responde 302 a una URL de descarga; httpx sigue el redirect.
+        """
+        url = f"{GRAPH_API_BASE}/drives/{drive_id}/items/{item_id}/content"
+        async with httpx.AsyncClient(timeout=60.0, follow_redirects=True) as client:
+            r = await client.get(url, headers=await self._headers())
+            if r.status_code != 200:
+                raise ConnectionError(
+                    f"Graph API {r.status_code} al descargar {item_id}: {r.text[:200]}"
+                )
+            ctype = r.headers.get("content-type", "application/octet-stream")
+            return r.content, ctype
+
     async def resolve_site_id(self, client: httpx.AsyncClient) -> str:
         url = f"{GRAPH_API_BASE}/sites/{self.hostname}:{self.site_path}"
         data = await self._get_json(client, url)

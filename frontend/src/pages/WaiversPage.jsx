@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { waiversApi } from '../lib/api'
-import { PageHeader, Stamp, Spinner, Loading, Empty, ErrorBox } from '../components/ui'
+import { PageHeader, Stamp, Spinner, Loading, Empty, ErrorBox, StatCard, StatStrip } from '../components/ui'
+import { Table2, Building2, FileText } from 'lucide-react'
 import Modal from '../components/Modal'
 
 const EMPTY = {
@@ -122,6 +123,14 @@ export default function WaiversPage() {
         subtitle={`${data.total} combinaciones lender · waiver (knowledge base del clasificador).`}
         actions={<button onClick={openNew} className="btn btn-coral">+ Nuevo waiver</button>}
       />
+
+      {!loading && data.items.length > 0 && (
+        <StatStrip cols={3}>
+          <StatCard icon={Table2} tone="navy" label="Total waivers" value={data.items.length} sub="combinaciones lender · waiver" />
+          <StatCard icon={Building2} tone="coral" label="Lenders cubiertos" value={new Set(data.items.map((w) => w.lender)).size} sub="lenders distintos" />
+          <StatCard icon={FileText} tone="ok" label="Documentos" value={data.items.reduce((n, w) => n + (w.documents?.length || 0), 0)} sub="esperados en total" />
+        </StatStrip>
+      )}
 
       <ErrorBox message={error} />
 

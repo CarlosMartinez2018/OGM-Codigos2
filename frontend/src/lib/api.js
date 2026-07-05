@@ -36,10 +36,23 @@ export const lendersApi = {
   reject: (domain) => request(`/lenders/${encodeURIComponent(domain)}/reject`, { method: 'POST' }),
 }
 
-// GET /emails · GET /emails/{id}
+// GET /emails · GET /emails/{id} · POST /emails/reload
 export const emailsApi = {
   list: (params = {}) => request(`/emails${qs(params)}`),
   get: (id) => request(`/emails/${id}`),
+  thread: (id) => request(`/emails/${id}/thread`),
+  reload: (reclassify = false) => request(`/emails/reload${qs({ reclassify })}`, { method: 'POST' }),
+}
+
+// Bandeja unificada (correo + estado derivado)
+export const inboxApi = {
+  list: (params = {}) => request(`/inbox${qs(params)}`),
+}
+
+// Configuración de la app (firma del operador)
+export const settingsApi = {
+  getSignature: () => request('/settings/signature'),
+  putSignature: (signature) => request('/settings/signature', { method: 'PUT', body: JSON.stringify({ signature }) }),
 }
 
 // GET /reviews(/{id}) · discard · answer
@@ -61,6 +74,8 @@ export const classificationsApi = {
     request(`/classifications/${id}/approve${qs({ reviewed_by: reviewedBy })}`, { method: 'POST' }),
   correct: (id, payload) =>
     request(`/classifications/${id}/correct`, { method: 'POST', body: JSON.stringify(payload) }),
+  reject: (id, comment, reviewedBy = 'operator') =>
+    request(`/classifications/${id}/reject`, { method: 'POST', body: JSON.stringify({ comment, reviewed_by: reviewedBy }) }),
 }
 
 // SharePoint (inventario)
@@ -69,6 +84,8 @@ export const sharepointApi = {
   drives: () => request('/sharepoint/drives'),
   list: (params = {}) => request(`/sharepoint/files${qs(params)}`),
   sync: () => request('/sharepoint/sync', { method: 'POST' }),
+  // URL directa al proxy de contenido (para <iframe>/descarga). No es fetch JSON.
+  contentUrl: (id) => `${BASE}/sharepoint/files/${encodeURIComponent(id)}/content`,
 }
 
 // Matriz lender-waiver (CRUD)
