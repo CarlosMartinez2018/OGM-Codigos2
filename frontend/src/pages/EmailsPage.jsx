@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
 import { RefreshCw, Mail, Sparkles, AlertTriangle, Paperclip } from 'lucide-react'
-import { emailsApi, inboxApi, metaApi, reviewsApi, settingsApi } from '../lib/api'
+import { emailsApi, inboxApi, metaApi, reviewsApi, settingsApi, classificationsApi, sharepointApi } from '../lib/api'
 import { fmtDate, fmtDateTime } from '../lib/dates'
 import { PageHeader, Loading, Empty, ErrorBox, Field, DetailBlock, Stamp, Spinner, IconButton, StatCard, StatStrip } from '../components/ui'
 import Tabs from '../components/Tabs'
@@ -27,25 +27,43 @@ const INBOX_TABS = [
 
 // Composer de respuesta — estetica Outlook. SOLO diseño: guarda el borrador
 // localmente y marca CONTESTADO. No envia ni conecta con Outlook.
-function ComposerModal({ open, onClose, email, review, onSaved }) {
+function ComposerModal({ open, onClose, email, review, classificationId, onSaved }) {
   const [body, setBody] = useState('')
-  const [attachments, setAttachments] = useState('')
+  const [sel, setSel] = useState([])          // adjuntos elegidos: {id, name}
+  const [ident, setIdent] = useState([])      // documentos identificados (match del clasificador)
+  const [spq, setSpq] = useState('')          // busqueda en SharePoint
+  const [spResults, setSpResults] = useState([])
   const [signature, setSignature] = useState('')
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
 
   useEffect(() => {
     if (!open) return
-    setError(''); setAttachments('')
+    setError(''); setSel([]); setSpq(''); setSpResults([]); setIdent([])
     setBody(email?.suggested_response || '')
     settingsApi.getSignature().then((s) => setSignature(s.signature || '')).catch(() => setSignature(''))
-  }, [open, email])
+    if (classificationId) {
+      classificationsApi.documents(classificationId)
+        .then((d) => setIdent((d.documents || []).flatMap((x) => x.found ? x.matches : []).filter((m) => m.id)))
+        .catch(() => setIdent([]))
+    }
+  }, [open, email, classificationId])
+
+  const addFile = (f) => setSel((s) => s.some((x) => x.id === f.id) ? s : [...s, { id: f.id, name: f.name }])
+  const removeFile = (id) => setSel((s) => s.filter((x) => x.id !== id))
+
+  const searchSp = async (e) => {
+    e.preventDefault()
+    if (!spq.trim()) { setSpResults([]); return }
+    try { const r = await sharepointApi.list({ q: spq.trim(), limit: 8 }); setSpResults(r.items || []) }
+    catch { setSpResults([]) }
+  }
 
   const save = async () => {
     if (!review?.id) return
     setSaving(true); setError('')
     const parts = [body.trim()]
-    if (attachments.trim()) parts.push(`\n[Adjuntos]: ${attachments.trim()}`)
+    if (sel.length) parts.push(`\n[Adjuntos SharePoint]: ${sel.map((f) => f.name).join(', ')}`)
     if (signature.trim()) parts.push(`\n--\n${signature.trim()}`)
     try {
       await reviewsApi.answer(review.id, parts.join('\n'))
@@ -69,9 +87,54 @@ function ComposerModal({ open, onClose, email, review, onSaved }) {
               className="field w-full mt-1 resize-none font-sans" />
           </div>
           <div>
-            <label className="eyebrow">Adjuntos (nombres, opcional)</label>
-            <input value={attachments} onChange={(e) => setAttachments(e.target.value)}
-              placeholder="ACORD 25.pdf, SOV.xlsx…" className="field w-full mt-1" />
+            <label className="eyebrow">Adjuntos desde SharePoint</label>
+
+            {/* Seleccionados */}
+            {sel.length > 0 && (
+              <div className="flex flex-wrap gap-1.5 mt-1.5">
+                {sel.map((f) => (
+                  <span key={f.id} className="chip bg-coralsoft text-coraldim">
+                    <Paperclip size={11} /> <span className="max-w-[12rem] truncate">{f.name}</span>
+                    <button onClick={() => removeFile(f.id)} className="ml-0.5 hover:text-stop" title="Quitar">×</button>
+                  </span>
+                ))}
+              </div>
+            )}
+
+            {/* Documentos identificados por el clasificador */}
+            {ident.length > 0 && (
+              <div className="mt-2">
+                <p className="text-[11px] text-faint mb-1">Identificados para este waiver:</p>
+                <div className="flex flex-wrap gap-1.5">
+                  {ident.map((m) => (
+                    <button key={m.id} onClick={() => addFile(m)}
+                      className="chip bg-navy/[0.05] text-navy hover:bg-coralsoft hover:text-coraldim transition-colors"
+                      title={`Agregar ${m.name}`}>
+                      + <span className="max-w-[12rem] truncate">{m.name}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Buscar cualquier archivo del SharePoint identificado */}
+            <form onSubmit={searchSp} className="flex gap-2 mt-2">
+              <input value={spq} onChange={(e) => setSpq(e.target.value)}
+                placeholder="Buscar en SharePoint…" className="field flex-1" />
+              <button className="btn btn-ghost" type="submit">Buscar</button>
+            </form>
+            {spResults.length > 0 && (
+              <ul className="mt-1.5 border border-line rounded-md divide-y divide-line max-h-40 overflow-y-auto">
+                {spResults.map((f) => (
+                  <li key={f.id}>
+                    <button onClick={() => addFile(f)} className="w-full text-left px-3 py-1.5 text-sm hover:bg-surfacealt flex items-center justify-between gap-2">
+                      <span className="truncate">{f.name}</span>
+                      <span className="text-[11px] text-faint shrink-0">+ agregar</span>
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
           </div>
           <div>
             <label className="eyebrow">Firma</label>
@@ -177,6 +240,7 @@ function EmailDrawer({ item, open, onClose, onChanged }) {
         onClose={() => setComposing(false)}
         email={data}
         review={review}
+        classificationId={item?.classification?.id}
         onSaved={() => { onChanged(); onClose() }}
       />
     </Drawer>
