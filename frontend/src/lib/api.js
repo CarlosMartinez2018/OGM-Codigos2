@@ -43,6 +43,11 @@ export const emailsApi = {
   reload: (reclassify = false) => request(`/emails/reload${qs({ reclassify })}`, { method: 'POST' }),
 }
 
+// Bandeja unificada (correo + estado derivado)
+export const inboxApi = {
+  list: (params = {}) => request(`/inbox${qs(params)}`),
+}
+
 // Configuración de la app (firma del operador)
 export const settingsApi = {
   getSignature: () => request('/settings/signature'),

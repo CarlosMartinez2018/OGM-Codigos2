@@ -402,6 +402,106 @@ async def get_email(
 
 
 # ---------------------------------------------------------------------------
+# Bandeja unificada: correo + estado derivado (clasificacion + revision)
+# ---------------------------------------------------------------------------
+
+# Prioridad de estado y a que tab pertenece.
+_INBOX_TABS = {
+    "general": None,  # todos
+    "por_revisar": {"por_revisar"},
+    "descartado": {"descartado"},
+    "contestado": {"contestado", "aprobado"},
+}
+
+
+def _derive_estado(cls, reviews: list) -> str:
+    """Estado unificado del correo a partir de su clasificacion y revisiones."""
+    statuses = {r.status for r in reviews}
+    if "PENDIENTE" in statuses:
+        return "por_revisar"
+    if "DESCARTADO" in statuses:
+        return "descartado"
+    if statuses & {"CONTESTADO", "GESTIONADO"}:
+        return "contestado"
+    if cls is not None:
+        if cls.status in ("reviewed", "corrected"):
+            return "aprobado"
+        if cls.status == "rejected":
+            return "rechazado"
+        if cls.status == "classified":
+            return "clasificada"
+    return "sin_procesar"
+
+
+@app.get("/api/v1/inbox")
+async def inbox(
+    tab: str = Query(default="general"),
+    search: Optional[str] = None,
+    limit: int = Query(default=50, ge=1, le=500),
+    offset: int = Query(default=0, ge=0),
+    session: AsyncSession = Depends(get_session),
+) -> dict[str, Any]:
+    """Bandeja estilo Outlook: cada correo con su estado (clasificada IA /
+    por revisar / descartado / contestado / aprobado). Filtra por tab.
+
+    Volumen actual (~cientos) permite computar el estado en Python.
+    """
+    tab = (tab or "general").lower()
+    wanted = _INBOX_TABS.get(tab, None)
+
+    emails = (await session.scalars(
+        select(ProductionEmail).order_by(ProductionEmail.received_date.desc().nullslast())
+    )).all()
+
+    cls_rows = (await session.scalars(select(EmailClassification))).all()
+    cls_by_mid = {c.message_id: c for c in cls_rows}
+    rev_rows = (await session.scalars(select(EmailReview))).all()
+    rev_by_mid: dict[str, list] = {}
+    for r in rev_rows:
+        rev_by_mid.setdefault(r.message_id, []).append(r)
+
+    term = (search or "").lower().strip()
+    counts = {"general": 0, "por_revisar": 0, "descartado": 0, "contestado": 0}
+    items: list[dict[str, Any]] = []
+    for e in emails:
+        if term and term not in (e.subject or "").lower() and term not in (e.sender or "").lower():
+            continue
+        cls = cls_by_mid.get(e.message_id)
+        revs = rev_by_mid.get(e.message_id, [])
+        estado = _derive_estado(cls, revs)
+        # Conteo por tab (sobre el universo filtrado por search).
+        counts["general"] += 1
+        for tname, tset in _INBOX_TABS.items():
+            if tset is not None and estado in tset:
+                counts[tname] += 1
+        if wanted is not None and estado not in wanted:
+            continue
+        pend = next((r for r in revs if r.status == "PENDIENTE"), None)
+        rev = pend or (revs[0] if revs else None)
+        items.append({
+            "id": e.id,
+            "message_id": e.message_id,
+            "subject": e.subject,
+            "sender": e.sender,
+            "sender_domain": e.sender_domain,
+            "received_date": e.received_date.isoformat() if e.received_date else None,
+            "has_attachments": e.has_attachments,
+            "estado": estado,
+            "classification": None if cls is None else {
+                "id": cls.id, "lender": cls.lender, "waiver_type": cls.waiver_type,
+                "confidence_level": cls.confidence_level, "status": cls.status,
+            },
+            "review": None if rev is None else {
+                "id": rev.id, "stage": rev.stage, "reason": rev.reason, "status": rev.status,
+            },
+        })
+
+    total = len(items)
+    page = items[offset:offset + limit]
+    return {"total": total, "limit": limit, "offset": offset, "items": page, "counts": counts}
+
+
+# ---------------------------------------------------------------------------
 # Cola de revision manual (email_reviews)
 # ---------------------------------------------------------------------------
 

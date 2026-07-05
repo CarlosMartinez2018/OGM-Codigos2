@@ -1,9 +1,28 @@
 import { useState, useEffect, useCallback } from 'react'
 import { RefreshCw, Mail, Sparkles, AlertTriangle, Paperclip } from 'lucide-react'
-import { emailsApi, metaApi } from '../lib/api'
+import { emailsApi, inboxApi, metaApi } from '../lib/api'
 import { fmtDate, fmtDateTime } from '../lib/dates'
 import { PageHeader, Loading, Empty, ErrorBox, Field, DetailBlock, Stamp, IconButton, StatCard, StatStrip } from '../components/ui'
+import Tabs from '../components/Tabs'
 import Drawer from '../components/Drawer'
+
+// Estado unificado del correo -> etiqueta + tono de sello.
+const ESTADO = {
+  clasificada: { label: 'Clasificada IA', tone: 'warn' },
+  por_revisar: { label: 'Por revisar', tone: 'warn' },
+  descartado: { label: 'Descartado', tone: 'neutral' },
+  contestado: { label: 'Contestado', tone: 'ok' },
+  aprobado: { label: 'Aprobado', tone: 'ok' },
+  rechazado: { label: 'Rechazado', tone: 'stop' },
+  sin_procesar: { label: 'Sin procesar', tone: 'neutral' },
+}
+
+const INBOX_TABS = [
+  { key: 'general', label: 'General' },
+  { key: 'por_revisar', label: 'Por revisar' },
+  { key: 'descartado', label: 'Descartado' },
+  { key: 'contestado', label: 'Contestado' },
+]
 
 function EmailDrawer({ id, open, onClose }) {
   const [data, setData] = useState(null)
@@ -71,6 +90,7 @@ export default function EmailsPage() {
   const [search, setSearch] = useState('')
   const [term, setTerm] = useState('')
   const [offset, setOffset] = useState(0)
+  const [tab, setTab] = useState('general')
   const [selected, setSelected] = useState(null)
   const [fromDate, setFromDate] = useState('')
   const [toDate, setToDate] = useState('')
@@ -80,26 +100,27 @@ export default function EmailsPage() {
   const refreshStats = useCallback(() => { metaApi.stats().then(setStats).catch(() => {}) }, [])
   useEffect(() => { refreshStats() }, [refreshStats])
 
-  const reloadFromOutlook = async () => {
-    setReloading(true); setError('')
-    try {
-      await emailsApi.reload(false)
-      load(term, 0)
-      refreshStats()
-    } catch (e) { setError(e.message) } finally { setReloading(false) }
-  }
-
-  const load = useCallback((q, off) => {
+  const load = useCallback((q, off, tb) => {
     setLoading(true)
-    emailsApi.list({ limit: PAGE, offset: off, search: q })
+    inboxApi.list({ limit: PAGE, offset: off, search: q, tab: tb })
       .then(setData)
       .catch((e) => setError(e.message))
       .finally(() => setLoading(false))
   }, [])
 
-  useEffect(() => { load(term, offset) }, [load, term, offset])
+  useEffect(() => { load(term, offset, tab) }, [load, term, offset, tab])
+
+  const reloadFromOutlook = async () => {
+    setReloading(true); setError('')
+    try {
+      await emailsApi.reload(false)
+      load(term, 0, tab)
+      refreshStats()
+    } catch (e) { setError(e.message) } finally { setReloading(false) }
+  }
 
   const onSearch = (e) => { e.preventDefault(); setOffset(0); setTerm(search) }
+  const changeTab = (k) => { setOffset(0); setTab(k) }
 
   const from = data.total === 0 ? 0 : offset + 1
   const to = Math.min(offset + PAGE, data.total)
@@ -150,6 +171,12 @@ export default function EmailsPage() {
         <StatCard icon={Paperclip} tone="ok" label="Con adjuntos" value={withAttachments} sub="en esta página" />
       </StatStrip>
 
+      <Tabs
+        tabs={INBOX_TABS.map((t) => ({ ...t, count: data.counts?.[t.key] }))}
+        active={tab}
+        onChange={changeTab}
+      />
+
       {loading ? (
         <Loading />
       ) : (
@@ -160,22 +187,32 @@ export default function EmailsPage() {
                 <th>Asunto</th>
                 <th>Remitente</th>
                 <th>Dominio</th>
+                <th>Estado</th>
                 <th className="text-right">Recibido</th>
               </tr>
             </thead>
             <tbody>
-              {visible.map((e) => (
-                <tr key={e.id} className="cursor-pointer" onClick={() => setSelected(e.id)}>
-                  <td className="max-w-md truncate text-ink" title={e.subject}>{e.subject || '(sin asunto)'}</td>
-                  <td className="text-muted truncate max-w-[15rem]" title={e.sender}>{e.sender}</td>
-                  <td><span className="token">{e.sender_domain}</span></td>
-                  <td className="text-right font-mono text-xs text-muted whitespace-nowrap tnum">
-                    {fmtDate(e.received_date)}
-                  </td>
-                </tr>
-              ))}
+              {visible.map((e) => {
+                const est = ESTADO[e.estado] || ESTADO.sin_procesar
+                return (
+                  <tr key={e.id} className="cursor-pointer" onClick={() => setSelected(e.id)}>
+                    <td className="max-w-md truncate text-ink" title={e.subject}>{e.subject || '(sin asunto)'}</td>
+                    <td className="text-muted truncate max-w-[13rem]" title={e.sender}>{e.sender}</td>
+                    <td><span className="token">{e.sender_domain}</span></td>
+                    <td>
+                      <Stamp tone={est.tone}>{est.label}</Stamp>
+                      {e.classification?.lender && e.classification.lender !== 'UNKNOWN' && (
+                        <span className="ml-2 text-[11px] text-faint">{e.classification.lender}</span>
+                      )}
+                    </td>
+                    <td className="text-right font-mono text-xs text-muted whitespace-nowrap tnum">
+                      {fmtDate(e.received_date)}
+                    </td>
+                  </tr>
+                )
+              })}
               {visible.length === 0 && (
-                <tr><td colSpan={4}><Empty>Sin correos.</Empty></td></tr>
+                <tr><td colSpan={5}><Empty>Sin correos en este estado.</Empty></td></tr>
               )}
             </tbody>
           </table>
