@@ -1,10 +1,11 @@
 import { useState, useEffect, useCallback } from 'react'
 import { RefreshCw, Mail, Sparkles, AlertTriangle, Paperclip } from 'lucide-react'
-import { emailsApi, inboxApi, metaApi } from '../lib/api'
+import { emailsApi, inboxApi, metaApi, reviewsApi, settingsApi } from '../lib/api'
 import { fmtDate, fmtDateTime } from '../lib/dates'
-import { PageHeader, Loading, Empty, ErrorBox, Field, DetailBlock, Stamp, IconButton, StatCard, StatStrip } from '../components/ui'
+import { PageHeader, Loading, Empty, ErrorBox, Field, DetailBlock, Stamp, Spinner, IconButton, StatCard, StatStrip } from '../components/ui'
 import Tabs from '../components/Tabs'
 import Drawer from '../components/Drawer'
+import Modal from '../components/Modal'
 
 // Estado unificado del correo -> etiqueta + tono de sello.
 const ESTADO = {
@@ -24,9 +25,81 @@ const INBOX_TABS = [
   { key: 'contestado', label: 'Contestado' },
 ]
 
-function EmailDrawer({ id, open, onClose }) {
+// Composer de respuesta — estetica Outlook. SOLO diseño: guarda el borrador
+// localmente y marca CONTESTADO. No envia ni conecta con Outlook.
+function ComposerModal({ open, onClose, email, review, onSaved }) {
+  const [body, setBody] = useState('')
+  const [attachments, setAttachments] = useState('')
+  const [signature, setSignature] = useState('')
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState('')
+
+  useEffect(() => {
+    if (!open) return
+    setError(''); setAttachments('')
+    setBody(email?.suggested_response || '')
+    settingsApi.getSignature().then((s) => setSignature(s.signature || '')).catch(() => setSignature(''))
+  }, [open, email])
+
+  const save = async () => {
+    if (!review?.id) return
+    setSaving(true); setError('')
+    const parts = [body.trim()]
+    if (attachments.trim()) parts.push(`\n[Adjuntos]: ${attachments.trim()}`)
+    if (signature.trim()) parts.push(`\n--\n${signature.trim()}`)
+    try {
+      await reviewsApi.answer(review.id, parts.join('\n'))
+      onSaved(); onClose()
+    } catch (e) { setError(e.message) } finally { setSaving(false) }
+  }
+
+  return (
+    <Modal open={open} onClose={onClose} title="Responder (borrador)">
+      {email && (
+        <div className="px-6 py-5 space-y-3">
+          {/* Cabecera estilo correo */}
+          <div className="card px-4 py-3 text-sm space-y-1 bg-surfacealt">
+            <div className="flex gap-2"><span className="eyebrow w-16">Para</span><span className="text-ink">{email.sender}</span></div>
+            <div className="flex gap-2"><span className="eyebrow w-16">Asunto</span><span className="text-ink">RE: {email.subject}</span></div>
+          </div>
+          <div>
+            <label className="eyebrow">Mensaje</label>
+            <textarea rows={9} value={body} onChange={(e) => setBody(e.target.value)}
+              placeholder="Escribe la respuesta… (borrador sugerido si existe)"
+              className="field w-full mt-1 resize-none font-sans" />
+          </div>
+          <div>
+            <label className="eyebrow">Adjuntos (nombres, opcional)</label>
+            <input value={attachments} onChange={(e) => setAttachments(e.target.value)}
+              placeholder="ACORD 25.pdf, SOV.xlsx…" className="field w-full mt-1" />
+          </div>
+          <div>
+            <label className="eyebrow">Firma</label>
+            <textarea rows={2} value={signature} onChange={(e) => setSignature(e.target.value)}
+              className="field w-full mt-1 resize-none text-xs" />
+          </div>
+          <ErrorBox message={error} />
+          <p className="text-[11px] text-faint">Se guarda como borrador y marca el correo CONTESTADO. No se envía: el envío lo hace un humano desde Outlook.</p>
+          <div className="flex justify-end gap-2 pt-1">
+            <button onClick={onClose} className="btn btn-ghost" disabled={saving}>Cancelar</button>
+            <button onClick={save} className="btn btn-primary" disabled={saving}>
+              {saving && <Spinner className="border-white/40 border-t-white" />} Guardar borrador
+            </button>
+          </div>
+        </div>
+      )}
+    </Modal>
+  )
+}
+
+function EmailDrawer({ item, open, onClose, onChanged }) {
+  const id = item?.id
+  const review = item?.review
+  const isPending = review?.status === 'PENDIENTE'
   const [data, setData] = useState(null)
   const [loading, setLoading] = useState(false)
+  const [composing, setComposing] = useState(false)
+  const [busy, setBusy] = useState(false)
 
   useEffect(() => {
     if (!open || !id) return
@@ -34,10 +107,23 @@ function EmailDrawer({ id, open, onClose }) {
     emailsApi.get(id).then(setData).catch(() => setData(null)).finally(() => setLoading(false))
   }, [open, id])
 
+  const discard = async () => {
+    if (!review?.id) return
+    setBusy(true)
+    try { await reviewsApi.discard(review.id, 'Descartado desde la bandeja'); onChanged(); onClose() }
+    finally { setBusy(false) }
+  }
+
   return (
     <Drawer open={open} onClose={onClose} title={data?.subject || 'Detalle del correo'}>
       {loading ? <Loading /> : data && (
         <div className="space-y-4">
+          {item?.review && (
+            <div className="card px-4 py-3 bg-warn/[0.06] border-warn/25">
+              <p className="eyebrow mb-1">Por qué está en revisión</p>
+              <p className="text-sm text-ink">{item.review.reason || item.review.stage}</p>
+            </div>
+          )}
           <div className="grid grid-cols-2 gap-4">
             <Field label="Remitente" value={data.sender} mono />
             <Field label="Dominio" value={data.sender_domain} mono />
@@ -74,9 +160,25 @@ function EmailDrawer({ id, open, onClose }) {
             </pre>
           </DetailBlock>
 
+          {isPending && (
+            <div className="flex gap-2 pt-1">
+              <button onClick={() => setComposing(true)} className="btn btn-primary flex-1">Contestar</button>
+              <button onClick={discard} disabled={busy} className="btn btn-danger flex-1 py-2">
+                {busy && <Spinner className="border-stop/40 border-t-stop" />} Descartar
+              </button>
+            </div>
+          )}
+
           <p className="token text-faint break-all">{data.message_id}</p>
         </div>
       )}
+      <ComposerModal
+        open={composing}
+        onClose={() => setComposing(false)}
+        email={data}
+        review={review}
+        onSaved={() => { onChanged(); onClose() }}
+      />
     </Drawer>
   )
 }
@@ -195,7 +297,7 @@ export default function EmailsPage() {
               {visible.map((e) => {
                 const est = ESTADO[e.estado] || ESTADO.sin_procesar
                 return (
-                  <tr key={e.id} className="cursor-pointer" onClick={() => setSelected(e.id)}>
+                  <tr key={e.id} className="cursor-pointer" onClick={() => setSelected(e)}>
                     <td className="max-w-md truncate text-ink" title={e.subject}>{e.subject || '(sin asunto)'}</td>
                     <td className="text-muted truncate max-w-[13rem]" title={e.sender}>{e.sender}</td>
                     <td><span className="token">{e.sender_domain}</span></td>
@@ -241,7 +343,12 @@ export default function EmailsPage() {
         </div>
       )}
 
-      <EmailDrawer id={selected} open={selected !== null} onClose={() => setSelected(null)} />
+      <EmailDrawer
+        item={selected}
+        open={selected !== null}
+        onClose={() => setSelected(null)}
+        onChanged={() => { load(term, offset, tab); refreshStats() }}
+      />
     </div>
   )
 }
