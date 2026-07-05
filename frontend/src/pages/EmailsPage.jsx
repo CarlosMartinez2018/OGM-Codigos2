@@ -160,14 +160,16 @@ function EmailDrawer({ item, open, onClose, onChanged }) {
   const review = item?.review
   const isPending = review?.status === 'PENDIENTE'
   const [data, setData] = useState(null)
+  const [thread, setThread] = useState(null)
   const [loading, setLoading] = useState(false)
   const [composing, setComposing] = useState(false)
   const [busy, setBusy] = useState(false)
 
   useEffect(() => {
     if (!open || !id) return
-    setLoading(true)
+    setLoading(true); setThread(null)
     emailsApi.get(id).then(setData).catch(() => setData(null)).finally(() => setLoading(false))
+    emailsApi.thread(id).then(setThread).catch(() => setThread(null))
   }, [open, id])
 
   const discard = async () => {
@@ -215,6 +217,23 @@ function EmailDrawer({ item, open, onClose, onChanged }) {
                 {data.attachment_names.map((a) => <Stamp key={a} tone="neutral">{a}</Stamp>)}
               </div>
             </div>
+          )}
+
+          {thread?.count > 1 && (
+            <DetailBlock title={`Hilo de conversación — ${thread.count} iteraciones`}>
+              <ol className="relative border-l border-line ml-1 space-y-3">
+                {thread.items.map((it) => (
+                  <li key={it.id} className={`pl-4 relative ${it.is_current ? '' : 'opacity-80'}`}>
+                    <span className={`absolute -left-[5px] top-1.5 w-2 h-2 rounded-full ${it.is_current ? 'bg-coral' : 'bg-line'}`} />
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="text-xs text-ink truncate">{it.sender}</span>
+                      <span className="font-mono text-[11px] text-faint tnum shrink-0">{fmtDateTime(it.received_date)}</span>
+                    </div>
+                    <p className="text-[11px] text-muted truncate">{it.subject}</p>
+                  </li>
+                ))}
+              </ol>
+            </DetailBlock>
           )}
 
           <DetailBlock title="Cuerpo del correo">

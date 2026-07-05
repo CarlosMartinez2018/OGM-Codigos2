@@ -401,6 +401,43 @@ async def get_email(
     return _email_detail_dict(row)
 
 
+@app.get("/api/v1/emails/{email_id}/thread")
+async def email_thread(
+    email_id: int,
+    session: AsyncSession = Depends(get_session),
+) -> dict[str, Any]:
+    """Hilo de conversacion (iteraciones) al que pertenece el correo.
+
+    Agrupa por conversation_id, ordenado del mas viejo al mas nuevo, con la
+    fecha de cada iteracion (estilo Outlook).
+    """
+    row = await session.get(ProductionEmail, email_id)
+    if row is None:
+        raise HTTPException(404, "Correo no encontrado")
+    conv = row.conversation_id
+    if conv:
+        emails = (await session.scalars(
+            select(ProductionEmail)
+            .where(ProductionEmail.conversation_id == conv)
+            .order_by(ProductionEmail.received_date.asc().nullsfirst())
+        )).all()
+    else:
+        emails = [row]
+    return {
+        "conversation_id": conv,
+        "count": len(emails),
+        "items": [{
+            "id": e.id,
+            "subject": e.subject,
+            "sender": e.sender,
+            "sender_domain": e.sender_domain,
+            "received_date": e.received_date.isoformat() if e.received_date else None,
+            "has_attachments": e.has_attachments,
+            "is_current": e.id == email_id,
+        } for e in emails],
+    }
+
+
 # ---------------------------------------------------------------------------
 # Bandeja unificada: correo + estado derivado (clasificacion + revision)
 # ---------------------------------------------------------------------------

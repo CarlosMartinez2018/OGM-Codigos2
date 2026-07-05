@@ -40,6 +40,7 @@ export const lendersApi = {
 export const emailsApi = {
   list: (params = {}) => request(`/emails${qs(params)}`),
   get: (id) => request(`/emails/${id}`),
+  thread: (id) => request(`/emails/${id}/thread`),
   reload: (reclassify = false) => request(`/emails/reload${qs({ reclassify })}`, { method: 'POST' }),
 }
 
