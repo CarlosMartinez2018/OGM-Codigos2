@@ -94,7 +94,7 @@ export default function SharepointPage() {
       {loading ? (
         <Loading />
       ) : (
-        <div className="card overflow-hidden">
+        <div className="card overflow-x-auto">
           <table className="ledger">
             <thead>
               <tr>

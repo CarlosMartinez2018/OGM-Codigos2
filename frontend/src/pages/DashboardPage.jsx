@@ -67,7 +67,7 @@ export default function DashboardPage() {
             <div className="flex flex-wrap items-end justify-between gap-6">
               <div>
                 <p className="text-[11px] font-semibold uppercase tracking-label text-coral">Confianza media del lote</p>
-                <p className="display text-6xl leading-none mt-2 tnum">
+                <p className="display text-6xl leading-tight mt-2 tnum pb-1">
                   {stats?.avg_confidence != null ? `${Math.round(stats.avg_confidence * 100)}` : '—'}
                   <span className="text-2xl text-white/50 ml-1">%</span>
                 </p>

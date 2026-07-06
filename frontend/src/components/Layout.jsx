@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { NavLink, Outlet } from 'react-router-dom'
-import { LayoutDashboard, Inbox, Sparkles, Building2, Table2, FolderTree } from 'lucide-react'
+import { LayoutDashboard, Inbox, Sparkles, Building2, Table2, FolderTree, Menu, X } from 'lucide-react'
 import { metaApi } from '../lib/api'
 
 const NAV = [
@@ -97,6 +97,8 @@ export default function Layout() {
     return () => { alive = false; clearInterval(id) }
   }, [])
 
+  const [navOpen, setNavOpen] = useState(false)
+
   const counts = {
     emails: stats?.total_emails,
     classified: stats?.total_classified,
@@ -105,14 +107,26 @@ export default function Layout() {
 
   return (
     <div className="min-h-screen flex bg-paper">
-      <aside className="w-60 bg-navy text-white flex flex-col shrink-0 shadow-rail sticky top-0 h-screen">
-        <div className="px-5 py-5 border-b border-white/10">
-          <img
-            src="/acento-logo.png"
-            alt="Acento Real Estate Partners"
-            className="w-full max-w-[180px] h-auto"
-          />
-          <p className="text-[11px] text-coral font-mono tracking-wider mt-2.5">WAIVER · CONTROL</p>
+      {/* Overlay móvil */}
+      {navOpen && (
+        <div className="fixed inset-0 bg-navyink/40 z-30 md:hidden" onClick={() => setNavOpen(false)} />
+      )}
+
+      <aside className={`w-60 bg-navy text-white flex flex-col shrink-0 shadow-rail h-screen z-40
+        fixed md:sticky top-0 transition-transform duration-200
+        ${navOpen ? 'translate-x-0' : '-translate-x-full'} md:translate-x-0`}>
+        <div className="px-5 py-5 border-b border-white/10 flex items-start justify-between">
+          <div>
+            <img
+              src="/acento-logo.png"
+              alt="Acento Real Estate Partners"
+              className="w-full max-w-[180px] h-auto"
+            />
+            <p className="text-[11px] text-coral font-mono tracking-wider mt-2.5">WAIVER · CONTROL</p>
+          </div>
+          <button onClick={() => setNavOpen(false)} className="md:hidden text-white/60 hover:text-white" aria-label="Cerrar menú">
+            <X size={20} />
+          </button>
         </div>
 
         <nav className="flex-1 p-3 space-y-0.5 overflow-y-auto">
@@ -122,6 +136,7 @@ export default function Layout() {
               <NavLink
                 key={n.to}
                 to={n.to}
+                onClick={() => setNavOpen(false)}
                 className={({ isActive }) =>
                   `group flex items-center gap-3 px-3 py-2 rounded-md text-sm transition-colors ${
                     isActive
@@ -145,6 +160,13 @@ export default function Layout() {
       </aside>
 
       <main className="flex-1 min-w-0">
+        {/* Topbar móvil */}
+        <div className="md:hidden sticky top-0 z-20 flex items-center gap-3 bg-navy text-white px-4 py-3 shadow-rail">
+          <button onClick={() => setNavOpen(true)} aria-label="Abrir menú" className="text-white/80 hover:text-white">
+            <Menu size={22} />
+          </button>
+          <span className="text-[11px] text-coral font-mono tracking-wider">WAIVER · CONTROL</span>
+        </div>
         <Outlet />
       </main>
     </div>
