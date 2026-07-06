@@ -2,27 +2,27 @@ import { useState, useEffect, useCallback } from 'react'
 import { RefreshCw, Mail, Sparkles, AlertTriangle, Paperclip } from 'lucide-react'
 import { emailsApi, inboxApi, metaApi, reviewsApi, settingsApi, classificationsApi, sharepointApi } from '../lib/api'
 import { fmtDate, fmtDateTime } from '../lib/dates'
-import { PageHeader, Loading, Empty, ErrorBox, Field, DetailBlock, Stamp, Spinner, IconButton, StatCard, StatStrip, humanize } from '../components/ui'
+import { PageHeader, Loading, Empty, ErrorBox, Field, DetailBlock, Stamp, Spinner, IconButton, StatCard, StatStrip, stageLabel } from '../components/ui'
 import Tabs from '../components/Tabs'
 import Drawer from '../components/Drawer'
 import Modal from '../components/Modal'
 
 // Estado unificado del correo -> etiqueta + tono de sello.
 const ESTADO = {
-  clasificada: { label: 'Clasificada IA', tone: 'warn' },
-  por_revisar: { label: 'Por revisar', tone: 'warn' },
-  descartado: { label: 'Descartado', tone: 'neutral' },
-  contestado: { label: 'Contestado', tone: 'ok' },
-  aprobado: { label: 'Aprobado', tone: 'ok' },
-  rechazado: { label: 'Rechazado', tone: 'stop' },
-  sin_procesar: { label: 'Sin procesar', tone: 'neutral' },
+  clasificada: { label: 'AI classified', tone: 'warn' },
+  por_revisar: { label: 'To review', tone: 'warn' },
+  descartado: { label: 'Discarded', tone: 'neutral' },
+  contestado: { label: 'Answered', tone: 'ok' },
+  aprobado: { label: 'Approved', tone: 'ok' },
+  rechazado: { label: 'Rejected', tone: 'stop' },
+  sin_procesar: { label: 'Unprocessed', tone: 'neutral' },
 }
 
 const INBOX_TABS = [
   { key: 'general', label: 'General' },
-  { key: 'por_revisar', label: 'Por revisar' },
-  { key: 'descartado', label: 'Descartado' },
-  { key: 'contestado', label: 'Contestado' },
+  { key: 'por_revisar', label: 'To review' },
+  { key: 'descartado', label: 'Discarded' },
+  { key: 'contestado', label: 'Answered' },
 ]
 
 // Composer de respuesta — estetica Outlook. SOLO diseño: guarda el borrador
@@ -63,7 +63,7 @@ function ComposerModal({ open, onClose, email, review, classificationId, onSaved
     if (!review?.id) return
     setSaving(true); setError('')
     const parts = [body.trim()]
-    if (sel.length) parts.push(`\n[Adjuntos SharePoint]: ${sel.map((f) => f.name).join(', ')}`)
+    if (sel.length) parts.push(`\n[SharePoint attachments]: ${sel.map((f) => f.name).join(', ')}`)
     if (signature.trim()) parts.push(`\n--\n${signature.trim()}`)
     try {
       await reviewsApi.answer(review.id, parts.join('\n'))
@@ -72,22 +72,22 @@ function ComposerModal({ open, onClose, email, review, classificationId, onSaved
   }
 
   return (
-    <Modal open={open} onClose={onClose} title="Responder (borrador)">
+    <Modal open={open} onClose={onClose} title="Reply (draft)">
       {email && (
         <div className="px-6 py-5 space-y-3">
           {/* Cabecera estilo correo */}
           <div className="card px-4 py-3 text-sm space-y-1 bg-surfacealt">
-            <div className="flex gap-2"><span className="eyebrow w-16">Para</span><span className="text-ink">{email.sender}</span></div>
-            <div className="flex gap-2"><span className="eyebrow w-16">Asunto</span><span className="text-ink">RE: {email.subject}</span></div>
+            <div className="flex gap-2"><span className="eyebrow w-16">To</span><span className="text-ink">{email.sender}</span></div>
+            <div className="flex gap-2"><span className="eyebrow w-16">Subject</span><span className="text-ink">RE: {email.subject}</span></div>
           </div>
           <div>
-            <label className="eyebrow">Mensaje</label>
+            <label className="eyebrow">Message</label>
             <textarea rows={9} value={body} onChange={(e) => setBody(e.target.value)}
-              placeholder="Escribe la respuesta… (borrador sugerido si existe)"
+              placeholder="Write the reply… (suggested draft if available)"
               className="field w-full mt-1 resize-none font-sans" />
           </div>
           <div>
-            <label className="eyebrow">Adjuntos desde SharePoint</label>
+            <label className="eyebrow">Attachments from SharePoint</label>
 
             {/* Seleccionados */}
             {sel.length > 0 && (
@@ -95,7 +95,7 @@ function ComposerModal({ open, onClose, email, review, classificationId, onSaved
                 {sel.map((f) => (
                   <span key={f.id} className="chip bg-coralsoft text-coraldim">
                     <Paperclip size={11} /> <span className="max-w-[12rem] truncate">{f.name}</span>
-                    <button onClick={() => removeFile(f.id)} className="ml-0.5 hover:text-stop" title="Quitar">×</button>
+                    <button onClick={() => removeFile(f.id)} className="ml-0.5 hover:text-stop" title="Remove">×</button>
                   </span>
                 ))}
               </div>
@@ -104,12 +104,12 @@ function ComposerModal({ open, onClose, email, review, classificationId, onSaved
             {/* Documentos identificados por el clasificador */}
             {ident.length > 0 && (
               <div className="mt-2">
-                <p className="text-[11px] text-faint mb-1">Identificados para este waiver:</p>
+                <p className="text-[11px] text-faint mb-1">Identified for this waiver:</p>
                 <div className="flex flex-wrap gap-1.5">
                   {ident.map((m) => (
                     <button key={m.id} onClick={() => addFile(m)}
                       className="chip bg-navy/[0.05] text-navy hover:bg-coralsoft hover:text-coraldim transition-colors"
-                      title={`Agregar ${m.name}`}>
+                      title={`Add ${m.name}`}>
                       + <span className="max-w-[12rem] truncate">{m.name}</span>
                     </button>
                   ))}
@@ -120,8 +120,8 @@ function ComposerModal({ open, onClose, email, review, classificationId, onSaved
             {/* Buscar cualquier archivo del SharePoint identificado */}
             <form onSubmit={searchSp} className="flex gap-2 mt-2">
               <input value={spq} onChange={(e) => setSpq(e.target.value)}
-                placeholder="Buscar en SharePoint…" className="field flex-1" />
-              <button className="btn btn-ghost" type="submit">Buscar</button>
+                placeholder="Search SharePoint…" className="field flex-1" />
+              <button className="btn btn-ghost" type="submit">Search</button>
             </form>
             {spResults.length > 0 && (
               <ul className="mt-1.5 border border-line rounded-md divide-y divide-line max-h-40 overflow-y-auto">
@@ -129,7 +129,7 @@ function ComposerModal({ open, onClose, email, review, classificationId, onSaved
                   <li key={f.id}>
                     <button onClick={() => addFile(f)} className="w-full text-left px-3 py-1.5 text-sm hover:bg-surfacealt flex items-center justify-between gap-2">
                       <span className="truncate">{f.name}</span>
-                      <span className="text-[11px] text-faint shrink-0">+ agregar</span>
+                      <span className="text-[11px] text-faint shrink-0">+ add</span>
                     </button>
                   </li>
                 ))}
@@ -137,16 +137,16 @@ function ComposerModal({ open, onClose, email, review, classificationId, onSaved
             )}
           </div>
           <div>
-            <label className="eyebrow">Firma</label>
+            <label className="eyebrow">Signature</label>
             <textarea rows={2} value={signature} onChange={(e) => setSignature(e.target.value)}
               className="field w-full mt-1 resize-none text-xs" />
           </div>
           <ErrorBox message={error} />
-          <p className="text-[11px] text-faint">Se guarda como borrador y marca el correo CONTESTADO. No se envía: el envío lo hace un humano desde Outlook.</p>
+          <p className="text-[11px] text-faint">Saved as a draft and marks the email ANSWERED. Not sent: a human sends it from Outlook.</p>
           <div className="flex justify-end gap-2 pt-1">
-            <button onClick={onClose} className="btn btn-ghost" disabled={saving}>Cancelar</button>
+            <button onClick={onClose} className="btn btn-ghost" disabled={saving}>Cancel</button>
             <button onClick={save} className="btn btn-primary" disabled={saving}>
-              {saving && <Spinner className="border-white/40 border-t-white" />} Guardar borrador
+              {saving && <Spinner className="border-white/40 border-t-white" />} Save draft
             </button>
           </div>
         </div>
@@ -175,35 +175,35 @@ function EmailDrawer({ item, open, onClose, onChanged }) {
   const discard = async () => {
     if (!review?.id) return
     setBusy(true)
-    try { await reviewsApi.discard(review.id, 'Descartado desde la bandeja'); onChanged(); onClose() }
+    try { await reviewsApi.discard(review.id, 'Discarded from the inbox'); onChanged(); onClose() }
     finally { setBusy(false) }
   }
 
   return (
-    <Drawer open={open} onClose={onClose} title={data?.subject || 'Detalle del correo'}>
+    <Drawer open={open} onClose={onClose} title={data?.subject || 'Email details'}>
       {loading ? <Loading /> : data && (
         <div className="space-y-4">
           {item?.review && (
             <div className="card px-4 py-3 bg-warn/[0.06] border-warn/25">
-              <p className="eyebrow mb-1">Por qué está en revisión</p>
-              <p className="text-sm text-ink">{item.review.reason || humanize(item.review.stage)}</p>
+              <p className="eyebrow mb-1">Why it's under review</p>
+              <p className="text-sm text-ink">{item.review.reason || stageLabel(item.review.stage)}</p>
             </div>
           )}
           <div className="grid grid-cols-2 gap-4">
-            <Field label="Remitente" value={data.sender} mono />
-            <Field label="Dominio" value={data.sender_domain} mono />
-            <Field label="Recibido" value={fmtDateTime(data.received_date)} mono />
+            <Field label="Sender" value={data.sender} mono />
+            <Field label="Domain" value={data.sender_domain} mono />
+            <Field label="Received" value={fmtDateTime(data.received_date)} mono />
             <div>
-              <p className="eyebrow mb-1">Adjuntos</p>
+              <p className="eyebrow mb-1">Attachments</p>
               {data.has_attachments
                 ? <span className="text-sm text-ink">{data.attachment_names.length}</span>
-                : <span className="text-sm text-faint">ninguno</span>}
+                : <span className="text-sm text-faint">none</span>}
             </div>
           </div>
 
           {data.to_recipients?.length > 0 && (
             <div>
-              <p className="eyebrow mb-1.5">Para</p>
+              <p className="eyebrow mb-1.5">To</p>
               <div className="flex flex-wrap gap-1.5">
                 {data.to_recipients.map((r) => <span key={r} className="token bg-ink/[0.03] px-2 py-0.5 rounded">{r}</span>)}
               </div>
@@ -212,7 +212,7 @@ function EmailDrawer({ item, open, onClose, onChanged }) {
 
           {data.attachment_names?.length > 0 && (
             <div>
-              <p className="eyebrow mb-1.5">Nombres de adjuntos</p>
+              <p className="eyebrow mb-1.5">Attachment names</p>
               <div className="flex flex-wrap gap-1.5">
                 {data.attachment_names.map((a) => <Stamp key={a} tone="neutral">{a}</Stamp>)}
               </div>
@@ -220,7 +220,7 @@ function EmailDrawer({ item, open, onClose, onChanged }) {
           )}
 
           {thread?.count > 1 && (
-            <DetailBlock title={`Hilo de conversación — ${thread.count} iteraciones`}>
+            <DetailBlock title={`Conversation thread — ${thread.count} iterations`}>
               <ol className="relative border-l border-line ml-1 space-y-3">
                 {thread.items.map((it) => (
                   <li key={it.id} className={`pl-4 relative ${it.is_current ? '' : 'opacity-80'}`}>
@@ -236,17 +236,17 @@ function EmailDrawer({ item, open, onClose, onChanged }) {
             </DetailBlock>
           )}
 
-          <DetailBlock title="Cuerpo del correo">
+          <DetailBlock title="Email body">
             <pre className="text-xs leading-relaxed whitespace-pre-wrap text-ink/90 font-sans max-h-96 overflow-y-auto">
-              {data.body_text?.slice(0, 6000) || 'Sin contenido.'}
+              {data.body_text?.slice(0, 6000) || 'No content.'}
             </pre>
           </DetailBlock>
 
           {isPending && (
             <div className="flex gap-2 pt-1">
-              <button onClick={() => setComposing(true)} className="btn btn-primary flex-1">Contestar</button>
+              <button onClick={() => setComposing(true)} className="btn btn-primary flex-1">Reply</button>
               <button onClick={discard} disabled={busy} className="btn btn-danger flex-1 py-2">
-                {busy && <Spinner className="border-stop/40 border-t-stop" />} Descartar
+                {busy && <Spinner className="border-stop/40 border-t-stop" />} Discard
               </button>
             </div>
           )}
@@ -323,10 +323,10 @@ export default function EmailsPage() {
   return (
     <div className="p-8 space-y-6 max-w-6xl">
       <PageHeader
-        title="Bandeja de producción"
-        subtitle={`${data.total} correos${hasDateFilter || term ? ' (filtrados)' : ' ingestados'}.`}
+        title="Production inbox"
+        subtitle={`${data.total} emails${hasDateFilter || term ? ' (filtered)' : ' ingested'}.`}
         actions={
-          <IconButton icon={RefreshCw} label={reloading ? 'Recargando…' : 'Recargar correos'} onClick={reloadFromOutlook} />
+          <IconButton icon={RefreshCw} label={reloading ? 'Reloading…' : 'Reload emails'} onClick={reloadFromOutlook} />
         }
       />
 
@@ -335,29 +335,29 @@ export default function EmailsPage() {
       {/* Toolbar de filtros (separado de "Recargar correos") */}
       <div className="flex flex-wrap items-end gap-3">
         <form onSubmit={onSearch} className="flex gap-2">
-          <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Asunto o remitente…" className="field w-64" />
-          <button className="btn btn-ghost">Buscar</button>
+          <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Subject or sender…" className="field w-64" />
+          <button className="btn btn-ghost">Search</button>
         </form>
         <div className="flex items-end gap-2">
           <label className="flex flex-col gap-1 text-xs text-muted">
-            <span className="eyebrow">Desde</span>
+            <span className="eyebrow">From</span>
             <input type="date" value={fromDate} onChange={(e) => changeFrom(e.target.value)} max={toDate || undefined} className="field w-40" />
           </label>
           <label className="flex flex-col gap-1 text-xs text-muted">
-            <span className="eyebrow">Hasta</span>
+            <span className="eyebrow">To</span>
             <input type="date" value={toDate} onChange={(e) => changeTo(e.target.value)} min={fromDate || undefined} className="field w-40" />
           </label>
           {hasDateFilter && (
-            <button onClick={clearDates} className="btn btn-ghost" title="Quitar filtro de fecha">Limpiar</button>
+            <button onClick={clearDates} className="btn btn-ghost" title="Clear date filter">Clear</button>
           )}
         </div>
       </div>
 
       <StatStrip>
-        <StatCard icon={Mail} tone="navy" label="Total correos" value={stats?.total_emails ?? data.total} sub="ingestados en producción" />
-        <StatCard icon={Sparkles} tone="coral" label="Clasificados" value={stats?.total_classified ?? 0} sub="por reglas del pre-filtrado" />
-        <StatCard icon={AlertTriangle} tone="warn" label="Por revisar" value={pendingReviews} sub="en cola de revisión" />
-        <StatCard icon={Paperclip} tone="ok" label="Con adjuntos" value={withAttachments} sub="en esta página" />
+        <StatCard icon={Mail} tone="navy" label="Total emails" value={stats?.total_emails ?? data.total} sub="ingested in production" />
+        <StatCard icon={Sparkles} tone="coral" label="Classified" value={stats?.total_classified ?? 0} sub="by pre-filter rules" />
+        <StatCard icon={AlertTriangle} tone="warn" label="To review" value={pendingReviews} sub="in review queue" />
+        <StatCard icon={Paperclip} tone="ok" label="With attachments" value={withAttachments} sub="on this page" />
       </StatStrip>
 
       <Tabs
@@ -373,11 +373,11 @@ export default function EmailsPage() {
           <table className="ledger">
             <thead>
               <tr>
-                <th>Asunto</th>
-                <th>Remitente</th>
-                <th>Dominio</th>
-                <th>Estado</th>
-                <th className="text-right">Recibido</th>
+                <th>Subject</th>
+                <th>Sender</th>
+                <th>Domain</th>
+                <th>Status</th>
+                <th className="text-right">Received</th>
               </tr>
             </thead>
             <tbody>
@@ -385,7 +385,7 @@ export default function EmailsPage() {
                 const est = ESTADO[e.estado] || ESTADO.sin_procesar
                 return (
                   <tr key={e.id} className="cursor-pointer" onClick={() => setSelected(e)}>
-                    <td className="max-w-md truncate text-ink" title={e.subject}>{e.subject || '(sin asunto)'}</td>
+                    <td className="max-w-md truncate text-ink" title={e.subject}>{e.subject || '(no subject)'}</td>
                     <td className="text-muted truncate max-w-[13rem]" title={e.sender}>{e.sender}</td>
                     <td><span className="token">{e.sender_domain}</span></td>
                     <td>
@@ -401,7 +401,7 @@ export default function EmailsPage() {
                 )
               })}
               {data.items.length === 0 && (
-                <tr><td colSpan={5}><Empty>Sin correos en este estado.</Empty></td></tr>
+                <tr><td colSpan={5}><Empty>No emails in this status.</Empty></td></tr>
               )}
             </tbody>
           </table>
@@ -410,21 +410,21 @@ export default function EmailsPage() {
 
       {!loading && data.total > 0 && (
         <div className="flex items-center justify-between text-xs text-muted">
-          <span className="font-mono tnum">{from}–{to} de {data.total}</span>
+          <span className="font-mono tnum">{from}–{to} of {data.total}</span>
           <div className="flex gap-2">
             <button
               className="btn btn-ghost"
               disabled={offset === 0}
               onClick={() => setOffset(Math.max(0, offset - PAGE))}
             >
-              Anterior
+              Previous
             </button>
             <button
               className="btn btn-ghost"
               disabled={to >= data.total}
               onClick={() => setOffset(offset + PAGE)}
             >
-              Siguiente
+              Next
             </button>
           </div>
         </div>

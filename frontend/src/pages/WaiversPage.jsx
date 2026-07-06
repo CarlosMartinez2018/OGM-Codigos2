@@ -63,26 +63,26 @@ function WaiverModal({ open, onClose, editing, onSaved }) {
   )
 
   return (
-    <Modal open={open} onClose={onClose} title={editing ? 'Editar waiver' : 'Nuevo waiver'} width="max-w-2xl">
+    <Modal open={open} onClose={onClose} title={editing ? 'Edit waiver' : 'New waiver'} width="max-w-2xl">
       <form onSubmit={submit} className="px-6 py-5 space-y-3 max-h-[70vh] overflow-y-auto">
         <div className="grid grid-cols-2 gap-3">
           <T label="Lender" k="lender" />
           <T label="Waiver type" k="waiver_type" />
         </div>
         <T label="Triggers" k="triggers" area />
-        <T label="Evidencia (Ops)" k="evidence_required_ops" area />
-        <T label="Evidencia (Seguros)" k="evidence_required_insurance" area />
+        <T label="Evidence (Ops)" k="evidence_required_ops" area />
+        <T label="Evidence (Insurance)" k="evidence_required_insurance" area />
         <T label="Waiver pack" k="waiver_pack" area />
-        <T label="Acciones a automatizar" k="actions_to_automate" area />
+        <T label="Actions to automate" k="actions_to_automate" area />
         <div>
-          <label className="eyebrow">Documentos esperados (uno por línea)</label>
+          <label className="eyebrow">Expected documents (one per line)</label>
           <textarea rows={4} value={form.documentsText} onChange={set('documentsText')} className="field w-full mt-1 resize-none font-mono text-xs" />
         </div>
         <ErrorBox message={error} />
         <div className="flex justify-end gap-2 pt-1">
-          <button type="button" onClick={onClose} className="btn btn-ghost" disabled={saving}>Cancelar</button>
+          <button type="button" onClick={onClose} className="btn btn-ghost" disabled={saving}>Cancel</button>
           <button type="submit" className="btn btn-primary" disabled={saving}>
-            {saving && <Spinner className="border-white/40 border-t-white" />} Guardar
+            {saving && <Spinner className="border-white/40 border-t-white" />} Save
           </button>
         </div>
       </form>
@@ -108,7 +108,7 @@ export default function WaiversPage() {
   useEffect(() => { load() }, [load])
 
   const del = async (w) => {
-    if (!confirm(`¿Borrar el waiver "${w.waiver_type}" de ${w.lender}?`)) return
+    if (!confirm(`Delete the waiver "${w.waiver_type}" from ${w.lender}?`)) return
     setError('')
     try { await waiversApi.delete(w.id); load() } catch (e) { setError(e.message) }
   }
@@ -119,16 +119,16 @@ export default function WaiversPage() {
   return (
     <div className="p-8 space-y-6 max-w-6xl">
       <PageHeader
-        title="Matriz de waivers"
-        subtitle={`${data.total} combinaciones lender · waiver (knowledge base del clasificador).`}
-        actions={<button onClick={openNew} className="btn btn-coral">+ Nuevo waiver</button>}
+        title="Waiver matrix"
+        subtitle={`${data.total} lender · waiver combinations (classifier knowledge base).`}
+        actions={<button onClick={openNew} className="btn btn-coral">+ New waiver</button>}
       />
 
       {!loading && data.items.length > 0 && (
         <StatStrip cols={3}>
-          <StatCard icon={Table2} tone="navy" label="Total waivers" value={data.items.length} sub="combinaciones lender · waiver" />
-          <StatCard icon={Building2} tone="coral" label="Lenders cubiertos" value={new Set(data.items.map((w) => w.lender)).size} sub="lenders distintos" />
-          <StatCard icon={FileText} tone="ok" label="Documentos" value={data.items.reduce((n, w) => n + (w.documents?.length || 0), 0)} sub="esperados en total" />
+          <StatCard icon={Table2} tone="navy" label="Total waivers" value={data.items.length} sub="lender · waiver combinations" />
+          <StatCard icon={Building2} tone="coral" label="Lenders covered" value={new Set(data.items.map((w) => w.lender)).size} sub="distinct lenders" />
+          <StatCard icon={FileText} tone="ok" label="Documents" value={data.items.reduce((n, w) => n + (w.documents?.length || 0), 0)} sub="expected in total" />
         </StatStrip>
       )}
 
@@ -137,7 +137,7 @@ export default function WaiversPage() {
       {loading ? (
         <Loading />
       ) : data.items.length === 0 ? (
-        <Empty>Sin waivers configurados.</Empty>
+        <Empty>No waivers configured.</Empty>
       ) : (
         <div className="space-y-3">
           {data.items.map((w) => (
@@ -158,8 +158,8 @@ export default function WaiversPage() {
                     )}
                   </div>
                   <div className="flex gap-2 shrink-0">
-                    <button onClick={() => openEdit(w)} className="btn btn-ghost text-xs px-2.5 py-1">Editar</button>
-                    <button onClick={() => del(w)} className="btn btn-danger">Borrar</button>
+                    <button onClick={() => openEdit(w)} className="btn btn-ghost text-xs px-2.5 py-1">Edit</button>
+                    <button onClick={() => del(w)} className="btn btn-danger">Delete</button>
                   </div>
                 </div>
               </div>

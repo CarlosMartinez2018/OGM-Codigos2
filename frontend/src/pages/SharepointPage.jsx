@@ -54,7 +54,7 @@ export default function SharepointPage() {
     setSyncing(true); setError(''); setMsg('')
     try {
       const r = await sharepointApi.sync()
-      setMsg(`Sync OK · ${r.files_added} nuevos · ${r.files_updated} actualizados · ${r.items_seen} items · ${r.took_seconds}s`)
+      setMsg(`Sync OK · ${r.files_added} new · ${r.files_updated} updated · ${r.items_seen} items · ${r.took_seconds}s`)
       load(q, drive); loadStats()
     } catch (e) { setError(e.message) } finally { setSyncing(false) }
   }
@@ -65,30 +65,30 @@ export default function SharepointPage() {
     <div className="p-8 space-y-5 max-w-6xl">
       <PageHeader
         title="SharePoint"
-        subtitle={`${data.total} archivos indexados${drives.length ? ` · ${drives.length} bibliotecas` : ''}.`}
+        subtitle={`${data.total} indexed files${drives.length ? ` · ${drives.length} libraries` : ''}.`}
         actions={
           <button onClick={sync} disabled={syncing} className="btn btn-primary">
-            {syncing && <Spinner className="border-white/40 border-t-white" />} Sincronizar
+            {syncing && <Spinner className="border-white/40 border-t-white" />} Sync
           </button>
         }
       />
 
       <StatStrip cols={3}>
-        <StatCard icon={Files} tone="navy" label="Archivos" value={stats.files} sub="documentos indexados" />
-        <StatCard icon={FolderTree} tone="coral" label="Carpetas" value={stats.folders} sub="contenedores" />
-        <StatCard icon={HardDrive} tone="ok" label="Drives" value={stats.drives} sub="bibliotecas" />
+        <StatCard icon={Files} tone="navy" label="Files" value={stats.files} sub="indexed documents" />
+        <StatCard icon={FolderTree} tone="coral" label="Folders" value={stats.folders} sub="containers" />
+        <StatCard icon={HardDrive} tone="ok" label="Drives" value={stats.drives} sub="libraries" />
       </StatStrip>
 
       {msg && <div className="text-sm text-ok bg-ok/10 ring-1 ring-inset ring-ok/25 rounded-md px-4 py-2">{msg}</div>}
       <ErrorBox message={error} />
 
       <form onSubmit={onSearch} className="flex flex-wrap gap-2">
-        <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Buscar por nombre o ruta…" className="field w-72" />
+        <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search by name or path…" className="field w-72" />
         <select value={drive} onChange={(e) => { setDrive(e.target.value); load(q, e.target.value) }} className="field">
-          <option value="">Todas las bibliotecas</option>
+          <option value="">All libraries</option>
           {drives.map((d) => <option key={d.drive_name} value={d.drive_name}>{d.drive_name} ({d.files})</option>)}
         </select>
-        <button className="btn btn-ghost">Buscar</button>
+        <button className="btn btn-ghost">Search</button>
       </form>
 
       {loading ? (
@@ -98,11 +98,11 @@ export default function SharepointPage() {
           <table className="ledger">
             <thead>
               <tr>
-                <th>Archivo</th>
-                <th>Biblioteca</th>
-                <th>Tipo</th>
-                <th className="text-right">Tamaño</th>
-                <th className="text-right">Modificado</th>
+                <th>File</th>
+                <th>Library</th>
+                <th>Type</th>
+                <th className="text-right">Size</th>
+                <th className="text-right">Modified</th>
               </tr>
             </thead>
             <tbody>
@@ -122,7 +122,7 @@ export default function SharepointPage() {
                 </tr>
               ))}
               {data.items.length === 0 && (
-                <tr><td colSpan={5}><Empty>Sin archivos. Pulsa Sincronizar para indexar SharePoint.</Empty></td></tr>
+                <tr><td colSpan={5}><Empty>No files. Click Sync to index SharePoint.</Empty></td></tr>
               )}
             </tbody>
           </table>

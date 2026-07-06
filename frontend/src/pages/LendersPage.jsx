@@ -7,10 +7,11 @@ import { Building2, CheckCircle2, Clock, Ban } from 'lucide-react'
 // Campo de estado real (api.py): l.status ∈ APROBADO | POR_APROBAR | NO_APROBADO.
 // Blacklist = NO_APROBADO.
 const TABS = [
-  { key: 'APROBADO', label: 'Aprobados' },
-  { key: 'POR_APROBAR', label: 'Por aprobar' },
+  { key: 'APROBADO', label: 'Approved' },
+  { key: 'POR_APROBAR', label: 'To approve' },
   { key: 'NO_APROBADO', label: 'Blacklist' },
 ]
+const STATUS_LABEL = { APROBADO: 'Approved', POR_APROBAR: 'To approve', NO_APROBADO: 'Blacklist' }
 
 export default function LendersPage() {
   const [data, setData] = useState({ total: 0, items: [] })
@@ -59,7 +60,7 @@ export default function LendersPage() {
     <div className="p-8 space-y-6 max-w-6xl">
       <PageHeader
         title="Lenders"
-        subtitle={`${data.total} dominios. Aprobar reprocesa sus correos por el pipeline.`}
+        subtitle={`${data.total} domains. Approving reprocesses their emails through the pipeline.`}
         actions={
           <Tabs
             tabs={TABS.map((t) => ({ ...t, count: counts[t.key] }))}
@@ -70,10 +71,10 @@ export default function LendersPage() {
       />
 
       <StatStrip>
-        <StatCard icon={Building2} tone="navy" label="Total" value={data.total} sub="Dominios registrados" />
-        <StatCard icon={CheckCircle2} tone="ok" label="Aprobados" value={counts.APROBADO} sub="Reprocesan su correo" />
-        <StatCard icon={Clock} tone="warn" label="Por aprobar" value={counts.POR_APROBAR} sub="Pendientes de revisión" />
-        <StatCard icon={Ban} tone="stop" label="Blacklist" value={counts.NO_APROBADO} sub="No aprobados" />
+        <StatCard icon={Building2} tone="navy" label="Total" value={data.total} sub="Registered domains" />
+        <StatCard icon={CheckCircle2} tone="ok" label="Approved" value={counts.APROBADO} sub="Reprocess their email" />
+        <StatCard icon={Clock} tone="warn" label="To approve" value={counts.POR_APROBAR} sub="Pending review" />
+        <StatCard icon={Ban} tone="stop" label="Blacklist" value={counts.NO_APROBADO} sub="Not approved" />
       </StatStrip>
 
       <ErrorBox message={error} />
@@ -85,9 +86,9 @@ export default function LendersPage() {
           <table className="ledger">
             <thead>
               <tr>
-                <th>Dominio</th>
+                <th>Domain</th>
                 <th>Lender</th>
-                <th>Estado</th>
+                <th>Status</th>
                 <th className="text-right">Acciones</th>
               </tr>
             </thead>
@@ -96,7 +97,7 @@ export default function LendersPage() {
                 <tr key={l.id}>
                   <td><span className="token">{l.domain}</span></td>
                   <td className="text-ink">{l.lender_name}</td>
-                  <td><Stamp tone={stampTone(l.status)}>{l.status}</Stamp></td>
+                  <td><Stamp tone={stampTone(l.status)}>{STATUS_LABEL[l.status] || l.status}</Stamp></td>
                   <td className="text-right whitespace-nowrap">
                     {busy === l.domain ? (
                       <Spinner />
@@ -104,12 +105,12 @@ export default function LendersPage() {
                       <div className="inline-flex gap-2">
                         {l.status !== 'APROBADO' && (
                           <button onClick={() => act(l.domain, 'approve')} className="btn btn-ok">
-                            Aprobar
+                            Approve
                           </button>
                         )}
                         {l.status !== 'NO_APROBADO' && (
                           <button onClick={() => act(l.domain, 'reject')} className="btn btn-danger">
-                            Rechazar
+                            Reject
                           </button>
                         )}
                       </div>
@@ -118,7 +119,7 @@ export default function LendersPage() {
                 </tr>
               ))}
               {visible.length === 0 && (
-                <tr><td colSpan={4}><Empty>Sin lenders.</Empty></td></tr>
+                <tr><td colSpan={4}><Empty>No lenders.</Empty></td></tr>
               )}
             </tbody>
           </table>

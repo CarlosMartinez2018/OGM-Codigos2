@@ -351,7 +351,7 @@ async def approve_lender(
 ) -> dict[str, Any]:
     result = await lender_approval.approve_domain(session, domain)
     if not result.get("found"):
-        raise HTTPException(404, f"Dominio no encontrado en domain_lender_map: {domain}")
+        raise HTTPException(404, f"Domain not found in domain_lender_map: {domain}")
     return result
 
 
@@ -397,7 +397,7 @@ async def get_email(
 ) -> dict[str, Any]:
     row = await session.get(ProductionEmail, email_id)
     if row is None:
-        raise HTTPException(404, "Correo no encontrado")
+        raise HTTPException(404, "Email not found")
     return _email_detail_dict(row)
 
 
@@ -413,7 +413,7 @@ async def email_thread(
     """
     row = await session.get(ProductionEmail, email_id)
     if row is None:
-        raise HTTPException(404, "Correo no encontrado")
+        raise HTTPException(404, "Email not found")
     conv = row.conversation_id
     if conv:
         emails = (await session.scalars(
@@ -586,7 +586,7 @@ async def get_review(
 ) -> dict[str, Any]:
     rev = await session.get(EmailReview, review_id)
     if rev is None:
-        raise HTTPException(404, "Review no encontrada")
+        raise HTTPException(404, "Review not found")
     pe = await session.get(ProductionEmail, rev.production_email_id) if rev.production_email_id else None
     data = _review_dict(rev, pe)
     if pe is not None:
@@ -620,7 +620,7 @@ async def get_review(
 async def _resolve_review(session: AsyncSession, review_id: int, status: str, note: Optional[str]) -> dict[str, Any]:
     rev = await session.get(EmailReview, review_id)
     if rev is None:
-        raise HTTPException(404, "Review no encontrada")
+        raise HTTPException(404, "Review not found")
     rev.status = status
     rev.note = note
     rev.resolved_at = datetime.now(timezone.utc)
@@ -680,7 +680,7 @@ async def get_classification(
 ) -> dict[str, Any]:
     row = await session.get(EmailClassification, classification_id)
     if row is None:
-        raise HTTPException(404, "Clasificacion no encontrada")
+        raise HTTPException(404, "Classification not found")
 
     data = _classification_to_dict(row)
 
@@ -711,7 +711,7 @@ async def approve_classification(
 ) -> dict[str, Any]:
     row = await session.get(EmailClassification, classification_id)
     if row is None:
-        raise HTTPException(404, "Clasificacion no encontrada")
+        raise HTTPException(404, "Classification not found")
     row.status = "reviewed"
     row.reviewed_by = reviewed_by
     row.updated_at = datetime.now(timezone.utc)
@@ -728,7 +728,7 @@ async def correct_classification(
 ) -> dict[str, Any]:
     row = await session.get(EmailClassification, classification_id)
     if row is None:
-        raise HTTPException(404, "Clasificacion no encontrada")
+        raise HTTPException(404, "Classification not found")
 
     # Registrar en el contexto de feedback ANTES de sobrescribir el par original.
     feedback_context.append_correction(
@@ -769,7 +769,7 @@ async def reject_classification(
     """Rechaza una clasificacion con comentario; alimenta el contexto de feedback."""
     row = await session.get(EmailClassification, classification_id)
     if row is None:
-        raise HTTPException(404, "Clasificacion no encontrada")
+        raise HTTPException(404, "Classification not found")
 
     feedback_context.append_rejection(row.lender, row.waiver_type, body.comment)
 
@@ -927,7 +927,7 @@ async def create_waiver(
         .where(LenderWaiverMatrix.waiver_type == body.waiver_type.strip())
     )
     if exists:
-        raise HTTPException(409, "Ya existe un waiver con ese lender + waiver_type")
+        raise HTTPException(409, "A waiver with that lender + waiver_type already exists")
     row = LenderWaiverMatrix()
     await _apply_waiver_payload(row, body)
     session.add(row)
@@ -952,7 +952,7 @@ async def update_waiver(
         .where(LenderWaiverMatrix.id == waiver_id)
     )
     if row is None:
-        raise HTTPException(404, "Waiver no encontrado")
+        raise HTTPException(404, "Waiver not found")
     conflict = await session.scalar(
         select(LenderWaiverMatrix.id)
         .where(LenderWaiverMatrix.lender == body.lender.strip())
@@ -960,7 +960,7 @@ async def update_waiver(
         .where(LenderWaiverMatrix.id != waiver_id)
     )
     if conflict:
-        raise HTTPException(409, "Otro waiver ya usa ese lender + waiver_type")
+        raise HTTPException(409, "Another waiver already uses that lender + waiver_type")
     await _apply_waiver_payload(row, body)
     await session.commit()
     row = await session.scalar(
@@ -978,7 +978,7 @@ async def delete_waiver(
 ) -> None:
     row = await session.get(LenderWaiverMatrix, waiver_id)
     if row is None:
-        raise HTTPException(404, "Waiver no encontrado")
+        raise HTTPException(404, "Waiver not found")
     await session.delete(row)
     await session.commit()
 
@@ -1011,7 +1011,7 @@ async def sharepoint_status() -> dict[str, Any]:
 async def sharepoint_sync(session: AsyncSession = Depends(get_session)) -> dict[str, Any]:
     """Recorre cada drive del sitio configurado y hace upsert de metadatos."""
     if not sharepoint.is_configured:
-        raise HTTPException(400, "SharePoint no configurado. Define AZURE_* y SHAREPOINT_* en .env")
+        raise HTTPException(400, "SharePoint not configured. Set AZURE_* and SHAREPOINT_* in .env")
 
     start = time.perf_counter()
     seen = added = updated = 0
@@ -1099,11 +1099,11 @@ async def sharepoint_file_content(
     """
     row = await session.get(SharePointFile, file_id)
     if row is None:
-        raise HTTPException(404, "Archivo no encontrado en el inventario")
+        raise HTTPException(404, "File not found in the inventory")
     if row.is_folder:
-        raise HTTPException(400, "El item es una carpeta, no un archivo")
+        raise HTTPException(400, "The item is a folder, not a file")
     if not sharepoint.is_configured:
-        raise HTTPException(503, "SharePoint no configurado")
+        raise HTTPException(503, "SharePoint not configured")
     try:
         content, ctype = await sharepoint.download_item(row.drive_id, row.id)
     except ConnectionError as exc:
@@ -1218,7 +1218,7 @@ async def classification_documents(
 ) -> dict[str, Any]:
     row = await session.get(EmailClassification, classification_id)
     if row is None:
-        raise HTTPException(404, "Clasificacion no encontrada")
+        raise HTTPException(404, "Classification not found")
 
     # Docs esperados: de la matriz actual (autoritativa/normalizada); fallback al guardado.
     matrix = await session.scalar(
@@ -1257,7 +1257,7 @@ async def documents_match(
         .where(LenderWaiverMatrix.waiver_type == waiver_type)
     )
     if matrix is None:
-        raise HTTPException(404, "No hay combinacion lender+waiver en la matriz")
+        raise HTTPException(404, "No lender+waiver combination in the matrix")
     docs = [d.document_name for d in sorted(matrix.documents, key=lambda d: d.position)]
     items = await _match_documents(session, docs)
     found = sum(1 for it in items if it["found"])

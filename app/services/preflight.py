@@ -40,7 +40,7 @@ def gate_blacklist(email: EmailData, kb: dict[str, Any]) -> Optional[PreflightRe
     domain = _sender_domain(email)
     if _domain_status(email, kb) == "NO_APROBADO":
         lender = kb.get("domain_name", {}).get(domain, domain)
-        reason = f"Lender/dominio en blacklist (NO_APROBADO): {lender} <{domain}>"
+        reason = f"Lender/domain in blacklist (NOT APPROVED): {lender} <{domain}>"
         return PreflightResult(False, "blacklist", reason)
     return None
 
@@ -54,10 +54,10 @@ def gate_domain(email: EmailData, kb: dict[str, Any]) -> Optional[PreflightResul
         return None
     if status == "POR_APROBAR":
         return PreflightResult(False, "lender_por_aprobar",
-                               f"Dominio pendiente de aprobacion: {domain}")
+                               f"Domain pending approval: {domain}")
     # No esta en el mapa -> nuevo lender por aprobar
     return PreflightResult(False, "lender_nuevo",
-                           f"Dominio nuevo, requiere aprobacion: {domain}")
+                           f"New domain, requires approval: {domain}")
 
 
 _FORWARD_SUBJECT = re.compile(r"^\s*(fw|fwd|rv|enc)\s*:", re.IGNORECASE)
@@ -87,21 +87,21 @@ def gate_threads(email: EmailData, kb: dict[str, Any]) -> Optional[PreflightResu
     if _is_forward(email):
         if domain in settings.internal_domains:
             reason = (
-                f"Reenvio interno: enviado desde un dominio interno ({domain}); "
-                "es un reenvio del equipo Acento/Captive, no una solicitud directa "
-                "del lender al buzon."
+                f"Internal forward: sent from an internal domain ({domain}); "
+                "it is a forward from the Acento/Captive team, not a direct request "
+                "from the lender to the mailbox."
             )
         else:
             reason = (
-                "Reenvio: la solicitud llega reenviada, no directa del lender al "
-                "buzon; no se puede confirmar el remitente original del hilo."
+                "Forward: the request arrives forwarded, not directly from the lender "
+                "to the mailbox; the original sender of the thread cannot be confirmed."
             )
         return PreflightResult(False, "reenvio", reason, detected_original_sender=orig)
     reason = (
-        "Hilo incompleto: no existe en el buzon el correo original del lender para "
-        "esta conversacion, asi que no se puede identificar el lender ni el contexto "
-        "del requerimiento. Falta el mensaje raiz del hilo; revisar manualmente y, si "
-        "aplica, ubicar el correo original o responder desde el hilo correcto."
+        "Incomplete thread: the lender's original email for this conversation is not "
+        "in the mailbox, so the lender and the request context cannot be identified. "
+        "The root message of the thread is missing; review manually and, if applicable, "
+        "locate the original email or reply from the correct thread."
     )
     return PreflightResult(False, "hilo_incompleto", reason, detected_original_sender=orig)
 
@@ -138,7 +138,7 @@ def gate_dedup(email: EmailData, group: list[EmailData]) -> Optional[PreflightRe
     if _is_primary(email, group):
         return None
     return PreflightResult(False, "duplicado",
-                           "No es el primer correo del conversation_id por fecha.")
+                           "Not the first email of the conversation_id by date.")
 
 
 def evaluate(email: EmailData, kb: dict[str, Any], group: list[EmailData]) -> PreflightResult:
