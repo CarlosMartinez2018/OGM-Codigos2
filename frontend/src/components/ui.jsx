@@ -6,7 +6,7 @@ export function Spinner({ className = '' }) {
     <span
       className={`inline-block w-4 h-4 border-2 border-line border-t-coral rounded-full animate-spin ${className}`}
       role="status"
-      aria-label="Cargando"
+      aria-label="Loading"
     />
   )
 }
@@ -113,6 +113,20 @@ export function humanize(s) {
   return t.charAt(0).toUpperCase() + t.slice(1)
 }
 
+// Etapas de revisión (claves del backend en español) -> etiqueta en inglés.
+const STAGE_LABELS = {
+  reenvio: 'Forward',
+  hilo_incompleto: 'Incomplete thread',
+  lender_nuevo: 'New lender',
+  lender_por_aprobar: 'Lender to approve',
+  duplicado: 'Duplicate',
+  blacklist: 'Blacklist',
+  no_aprobado: 'Not approved',
+}
+export function stageLabel(s) {
+  return STAGE_LABELS[s] || humanize(s)
+}
+
 export function Bar({ label, count, total, mono = false, tone = 'navy' }) {
   const pct = total > 0 ? Math.round((count / total) * 100) : 0
   const fill = tone === 'alert' ? 'bg-coral' : 'bg-navy'
@@ -174,7 +188,7 @@ export function ErrorBox({ message }) {
   )
 }
 
-export function Loading({ label = 'Cargando…' }) {
+export function Loading({ label = 'Loading…' }) {
   return (
     <div className="flex items-center gap-2 text-muted text-sm py-6 justify-center">
       <Spinner /> {label}

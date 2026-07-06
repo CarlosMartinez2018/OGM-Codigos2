@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { Mail, Sparkles, AlertTriangle, Building2 } from 'lucide-react'
 import { metaApi, classificationsApi } from '../lib/api'
-import { StatCard, StatStrip, Bar, Card, PageHeader, Spinner, Loading, Empty, ErrorBox, humanize } from '../components/ui'
+import { StatCard, StatStrip, Bar, Card, PageHeader, Spinner, Loading, Empty, ErrorBox, stageLabel } from '../components/ui'
 
 export default function DashboardPage() {
   const [stats, setStats] = useState(null)
@@ -45,12 +45,12 @@ export default function DashboardPage() {
   return (
     <div className="p-8 space-y-7 max-w-6xl">
       <PageHeader
-        title="Panel de control"
-        subtitle="Actividad del pipeline de clasificación de waivers."
+        title="Dashboard"
+        subtitle="Waiver classification pipeline activity."
         actions={
           <button onClick={runClassification} disabled={running} className="btn btn-coral">
             {running && <Spinner className="border-white/40 border-t-white" />}
-            Clasificar pendientes
+            Classify pending
           </button>
         }
       />
@@ -66,18 +66,18 @@ export default function DashboardPage() {
             style={{ backgroundImage: 'radial-gradient(120% 120% at 100% 0%, rgba(226,102,75,0.20), transparent 55%)' }}>
             <div className="flex flex-wrap items-end justify-between gap-6">
               <div>
-                <p className="text-[11px] font-semibold uppercase tracking-label text-coral">Confianza media del lote</p>
+                <p className="text-[11px] font-semibold uppercase tracking-label text-coral">Batch average confidence</p>
                 <p className="display text-6xl leading-tight mt-2 tnum pt-1 pb-1">
                   {stats?.avg_confidence != null ? `${Math.round(stats.avg_confidence * 100)}` : '—'}
                   <span className="text-2xl text-white/50 ml-1">%</span>
                 </p>
                 <p className="text-sm text-white/60 mt-2.5">
-                  {totalCls} de {stats?.total_emails ?? 0} correos clasificados por reglas
+                  {totalCls} of {stats?.total_emails ?? 0} emails classified by rules
                 </p>
               </div>
               {/* Distribución de confianza en barras */}
               <div className="flex items-end gap-2 h-20">
-                {[['low', 'baja', 'bg-white/25'], ['medium', 'media', 'bg-coral/60'], ['high', 'alta', 'bg-coral']].map(([k, lbl, cls]) => {
+                {[['low', 'low', 'bg-white/25'], ['medium', 'medium', 'bg-coral/60'], ['high', 'high', 'bg-coral']].map(([k, lbl, cls]) => {
                   const conf = stats?.classifications_by_confidence || {}
                   const mx = Math.max(1, ...Object.values(conf))
                   const v = conf[k] || 0
@@ -94,22 +94,22 @@ export default function DashboardPage() {
           </section>
 
           <StatStrip>
-            <StatCard icon={Mail} tone="navy" label="Correos" value={stats?.total_emails ?? 0} sub="en bandeja de producción" />
-            <StatCard icon={Sparkles} tone="coral" label="Clasificados" value={totalCls} sub="sobrevivientes del pre-filtrado" />
-            <StatCard icon={Building2} tone="ok" label="Lenders activos" value={byStatus.reduce((a, [, n]) => a + n, 0)} sub="dominios mapeados" />
+            <StatCard icon={Mail} tone="navy" label="Emails" value={stats?.total_emails ?? 0} sub="in production inbox" />
+            <StatCard icon={Sparkles} tone="coral" label="Classified" value={totalCls} sub="survived the pre-filter" />
+            <StatCard icon={Building2} tone="ok" label="Active lenders" value={byStatus.reduce((a, [, n]) => a + n, 0)} sub="mapped domains" />
             <StatCard
               icon={AlertTriangle}
               tone={pendingReviews > 0 ? 'stop' : 'ok'}
-              label="En revisión"
+              label="Under review"
               value={pendingReviews}
-              sub="cola manual pendiente"
+              sub="pending manual queue"
             />
           </StatStrip>
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
-            <Card title="Clasificaciones por lender">
+            <Card title="Classifications by lender">
               {byLender.length === 0 ? (
-                <Empty>Sin datos de clasificación aún.</Empty>
+                <Empty>No classification data yet.</Empty>
               ) : (
                 <div className="space-y-3">
                   {byLender.map(([name, count]) => (
@@ -119,20 +119,20 @@ export default function DashboardPage() {
               )}
             </Card>
 
-            <Card title="Cola de revisión por etapa">
+            <Card title="Review queue by stage">
               {byStage.length === 0 ? (
-                <Empty>Cola vacía.</Empty>
+                <Empty>Queue empty.</Empty>
               ) : (
                 <div className="space-y-3">
                   {byStage.map(([stage, count]) => (
-                    <Bar key={stage} label={humanize(stage)} count={count} total={pendingReviews} tone="alert" />
+                    <Bar key={stage} label={stageLabel(stage)} count={count} total={pendingReviews} tone="alert" />
                   ))}
                 </div>
               )}
             </Card>
           </div>
 
-          <Card title="Lenders por estado">
+          <Card title="Lenders by status">
             <div className="grid grid-cols-3 divide-x divide-line">
               {byStatus.map(([status, count]) => (
                 <div key={status} className="px-4 first:pl-0">

@@ -4,11 +4,11 @@ import { LayoutDashboard, Inbox, Sparkles, Building2, Table2, FolderTree, Menu, 
 import { metaApi } from '../lib/api'
 
 const NAV = [
-  { to: '/dashboard', label: 'Panel', Icon: LayoutDashboard },
-  { to: '/inbox', label: 'Bandeja', Icon: Inbox, countKey: 'emails' },
-  { to: '/classifications', label: 'Clasificaciones', Icon: Sparkles, countKey: 'classified' },
+  { to: '/dashboard', label: 'Dashboard', Icon: LayoutDashboard },
+  { to: '/inbox', label: 'Inbox', Icon: Inbox, countKey: 'emails' },
+  { to: '/classifications', label: 'Classifications', Icon: Sparkles, countKey: 'classified' },
   { to: '/lenders', label: 'Lenders', Icon: Building2, countKey: 'pendingLenders' },
-  { to: '/waivers', label: 'Matriz waivers', Icon: Table2 },
+  { to: '/waivers', label: 'Waiver matrix', Icon: Table2 },
   { to: '/sharepoint', label: 'SharePoint', Icon: FolderTree },
 ]
 
@@ -18,9 +18,9 @@ function NavPulse({ stats }) {
   if (!stats) return null
   const conf = stats.classifications_by_confidence || {}
   const bars = [
-    { key: 'baja', v: conf.low || 0, cls: 'bg-white/25' },
-    { key: 'media', v: conf.medium || 0, cls: 'bg-coral/60' },
-    { key: 'alta', v: conf.high || 0, cls: 'bg-coral' },
+    { key: 'low', v: conf.low || 0, cls: 'bg-white/25' },
+    { key: 'medium', v: conf.medium || 0, cls: 'bg-coral/60' },
+    { key: 'high', v: conf.high || 0, cls: 'bg-coral' },
   ]
   const max = Math.max(1, ...bars.map((b) => b.v))
   const pending = Object.values(stats.pending_reviews_by_stage || {}).reduce((a, b) => a + b, 0)
@@ -28,14 +28,14 @@ function NavPulse({ stats }) {
   return (
     <div className="mx-3 mb-2 rounded-lg bg-white/[0.04] border border-white/10 px-3 py-3">
       <div className="flex items-center justify-between mb-2">
-        <span className="text-[10px] font-semibold uppercase tracking-label text-white/40">Pulso</span>
-        <span className="font-mono text-[10px] text-coral tnum" title="Confianza promedio">
+        <span className="text-[10px] font-semibold uppercase tracking-label text-white/40">Pulse</span>
+        <span className="font-mono text-[10px] text-coral tnum" title="Average confidence">
           {Math.round((stats.avg_confidence || 0) * 100)}%
         </span>
       </div>
       <div className="flex items-end gap-1 h-8 mb-2.5">
         {bars.map((b) => (
-          <div key={b.key} className="flex-1 flex flex-col justify-end" title={`confianza ${b.key}: ${b.v}`}>
+          <div key={b.key} className="flex-1 flex flex-col justify-end" title={`${b.key} confidence: ${b.v}`}>
             <div
               className={`${b.cls} rounded-sm transition-all duration-500`}
               style={{ height: `${Math.max(6, (b.v / max) * 100)}%` }}
@@ -44,9 +44,9 @@ function NavPulse({ stats }) {
         ))}
       </div>
       <div className="grid grid-cols-3 gap-1 text-center">
-        <PulseStat n={stats.total_emails} label="correos" />
-        <PulseStat n={stats.total_classified} label="clasif." />
-        <PulseStat n={pending} label="revisar" tone={pending > 0 ? 'coral' : 'dim'} />
+        <PulseStat n={stats.total_emails} label="emails" />
+        <PulseStat n={stats.total_classified} label="classified" />
+        <PulseStat n={pending} label="review" tone={pending > 0 ? 'coral' : 'dim'} />
       </div>
     </div>
   )
@@ -77,11 +77,11 @@ function HealthDot() {
     <div className="px-4 py-3 border-t border-white/10 text-[11px] font-mono text-white/50 space-y-1.5">
       <div className="flex items-center gap-2">
         <span className={`w-1.5 h-1.5 rounded-full ${up ? 'bg-ok' : health ? 'bg-stop' : 'bg-white/30'}`} />
-        <span>{up ? 'backend online' : health ? 'backend down' : 'checando…'}</span>
+        <span>{up ? 'backend online' : health ? 'backend down' : 'checking…'}</span>
       </div>
       <div className="flex items-center gap-2">
         <span className={`w-1.5 h-1.5 rounded-full ${llm ? 'bg-coral' : 'bg-white/20'}`} />
-        <span>{llm ? 'llm on' : 'llm off · reglas'}</span>
+        <span>{llm ? 'llm on' : 'llm off · rules'}</span>
       </div>
     </div>
   )
@@ -124,7 +124,7 @@ export default function Layout() {
             />
             <p className="text-[11px] text-coral font-mono tracking-wider mt-2.5">WAIVER · CONTROL</p>
           </div>
-          <button onClick={() => setNavOpen(false)} className="md:hidden text-white/60 hover:text-white" aria-label="Cerrar menú">
+          <button onClick={() => setNavOpen(false)} className="md:hidden text-white/60 hover:text-white" aria-label="Close menu">
             <X size={20} />
           </button>
         </div>
@@ -162,7 +162,7 @@ export default function Layout() {
       <main className="flex-1 min-w-0">
         {/* Topbar móvil */}
         <div className="md:hidden sticky top-0 z-20 flex items-center gap-3 bg-navy text-white px-4 py-3 shadow-rail">
-          <button onClick={() => setNavOpen(true)} aria-label="Abrir menú" className="text-white/80 hover:text-white">
+          <button onClick={() => setNavOpen(true)} aria-label="Open menu" className="text-white/80 hover:text-white">
             <Menu size={22} />
           </button>
           <span className="text-[11px] text-coral font-mono tracking-wider">WAIVER · CONTROL</span>

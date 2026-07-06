@@ -13,10 +13,10 @@ const STATUS_TONE = { classified: 'warn', reviewed: 'ok', corrected: 'neutral', 
 // Tabs-container: mapea cada tab al campo `status` real del backend.
 // 'classified' = recién clasificado por la IA, pendiente de revisión humana.
 const TABS = [
-  { key: 'PENDING', label: 'Por revisar', status: 'classified' },
-  { key: 'APPROVED', label: 'Aprobado', status: 'reviewed' },
-  { key: 'CORRECTED', label: 'Corregido', status: 'corrected' },
-  { key: 'REJECTED', label: 'Rechazado', status: 'rejected' },
+  { key: 'PENDING', label: 'To review', status: 'classified' },
+  { key: 'APPROVED', label: 'Approved', status: 'reviewed' },
+  { key: 'CORRECTED', label: 'Corrected', status: 'corrected' },
+  { key: 'REJECTED', label: 'Rejected', status: 'rejected' },
 ]
 
 // ── Modal de corrección ─────────────────────────────────────────────
@@ -41,7 +41,7 @@ function CorrectModal({ open, onClose, item, onSaved }) {
 
   const submit = async (e) => {
     e.preventDefault()
-    if (!lender || !waiver) { setError('Lender y waiver son obligatorios.'); return }
+    if (!lender || !waiver) { setError('Lender and waiver are required.'); return }
     setSaving(true); setError('')
     try {
       await classificationsApi.correct(item.id, {
@@ -53,36 +53,36 @@ function CorrectModal({ open, onClose, item, onSaved }) {
   }
 
   return (
-    <Modal open={open} onClose={onClose} title="Corregir clasificación">
+    <Modal open={open} onClose={onClose} title="Correct classification">
       {item && (
         <form onSubmit={submit} className="px-6 py-5 space-y-4">
           <div className="card px-4 py-3 text-sm">
-            <p className="eyebrow mb-1.5">Clasificación actual</p>
+            <p className="eyebrow mb-1.5">Current classification</p>
             <p className="text-ink">{item.lender} · {item.waiver_type}</p>
           </div>
           <div>
-            <label className="eyebrow">Lender correcto</label>
+            <label className="eyebrow">Correct lender</label>
             <select value={lender} onChange={(e) => { setLender(e.target.value); setWaiver('') }} className="field w-full mt-1">
-              <option value="">Seleccionar…</option>
+              <option value="">Select…</option>
               {catalog.map((l) => <option key={l.name} value={l.name}>{l.name}</option>)}
             </select>
           </div>
           <div>
-            <label className="eyebrow">Waiver correcto</label>
+            <label className="eyebrow">Correct waiver</label>
             <select value={waiver} onChange={(e) => setWaiver(e.target.value)} disabled={!lender} className="field w-full mt-1 disabled:opacity-50">
-              <option value="">Seleccionar…</option>
+              <option value="">Select…</option>
               {waivers.map((w) => <option key={w} value={w}>{w}</option>)}
             </select>
           </div>
           <div>
-            <label className="eyebrow">Notas (opcional)</label>
-            <textarea rows={2} value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Razón de la corrección…" className="field w-full mt-1 resize-none" />
+            <label className="eyebrow">Notes (optional)</label>
+            <textarea rows={2} value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Reason for the correction…" className="field w-full mt-1 resize-none" />
           </div>
           <ErrorBox message={error} />
           <div className="flex justify-end gap-2 pt-1">
-            <button type="button" onClick={onClose} className="btn btn-ghost" disabled={saving}>Cancelar</button>
+            <button type="button" onClick={onClose} className="btn btn-ghost" disabled={saving}>Cancel</button>
             <button type="submit" className="btn btn-primary" disabled={saving}>
-              {saving && <Spinner className="border-white/40 border-t-white" />} Guardar corrección
+              {saving && <Spinner className="border-white/40 border-t-white" />} Save correction
             </button>
           </div>
         </form>
@@ -101,31 +101,31 @@ function RejectModal({ open, onClose, item, onSaved }) {
 
   const submit = async (e) => {
     e.preventDefault()
-    if (!comment.trim()) { setError('El comentario es obligatorio: alimenta el contexto de la IA.'); return }
+    if (!comment.trim()) { setError('The comment is required: it feeds the AI context.'); return }
     setSaving(true); setError('')
     try { await classificationsApi.reject(item.id, comment.trim()); onSaved(); onClose() }
     catch (err) { setError(err.message) } finally { setSaving(false) }
   }
 
   return (
-    <Modal open={open} onClose={onClose} title="Rechazar clasificación">
+    <Modal open={open} onClose={onClose} title="Reject classification">
       {item && (
         <form onSubmit={submit} className="px-6 py-5 space-y-4">
           <div className="card px-4 py-3 text-sm">
-            <p className="eyebrow mb-1.5">Clasificación rechazada</p>
+            <p className="eyebrow mb-1.5">Rejected classification</p>
             <p className="text-ink">{item.lender} · {item.waiver_type}</p>
           </div>
           <div>
-            <label className="eyebrow">Motivo del rechazo</label>
+            <label className="eyebrow">Reason for rejection</label>
             <textarea rows={3} value={comment} onChange={(e) => setComment(e.target.value)}
-              placeholder="¿Por qué está mal? Este texto entra al contexto para que la IA mejore…"
+              placeholder="Why is it wrong? This text feeds the context so the AI improves…"
               className="field w-full mt-1 resize-none" />
           </div>
           <ErrorBox message={error} />
           <div className="flex justify-end gap-2 pt-1">
-            <button type="button" onClick={onClose} className="btn btn-ghost" disabled={saving}>Cancelar</button>
+            <button type="button" onClick={onClose} className="btn btn-ghost" disabled={saving}>Cancel</button>
             <button type="submit" className="btn btn-danger px-3.5 py-2" disabled={saving}>
-              {saving && <Spinner className="border-stop/40 border-t-stop" />} Rechazar
+              {saving && <Spinner className="border-stop/40 border-t-stop" />} Reject
             </button>
           </div>
         </form>
@@ -137,7 +137,7 @@ function RejectModal({ open, onClose, item, onSaved }) {
 // ── Visor de PDF inline (proxy de SharePoint) ───────────────────────
 function PdfModal({ file, onClose }) {
   return (
-    <Modal open={!!file} onClose={onClose} title={file?.name || 'Documento'}>
+    <Modal open={!!file} onClose={onClose} title={file?.name || 'Document'}>
       {file && (
         <div className="px-4 py-4">
           <iframe
@@ -147,7 +147,7 @@ function PdfModal({ file, onClose }) {
           />
           <div className="flex justify-end mt-3">
             <a href={file.web_url || sharepointApi.contentUrl(file.id)} target="_blank" rel="noreferrer" className="btn btn-ghost">
-              Abrir en SharePoint
+              Open in SharePoint
             </a>
           </div>
         </div>
@@ -185,7 +185,7 @@ function ClassificationDrawer({ id, open, onClose, onChanged, onCorrect, onRejec
   const m = data?.matrix
 
   return (
-    <Drawer open={open} onClose={onClose} title={data?.lender ? `${data.lender} · ${data.waiver_type}` : 'Clasificación'}>
+    <Drawer open={open} onClose={onClose} title={data?.lender ? `${data.lender} · ${data.waiver_type}` : 'Classification'}>
       {loading || !data ? <Loading /> : (
         <div className="space-y-4">
           {/* Resumen */}
@@ -195,39 +195,39 @@ function ClassificationDrawer({ id, open, onClose, onChanged, onCorrect, onRejec
             </Stamp>
             <Stamp tone={STATUS_TONE[data.status] || 'neutral'}>{data.status}</Stamp>
             <span className="font-mono text-[11px] text-faint uppercase tracking-wider">{data.communication_category}</span>
-            {data.escalate_for_review && <Stamp tone="stop">escalar</Stamp>}
+            {data.escalate_for_review && <Stamp tone="stop">escalate</Stamp>}
           </div>
 
           {/* Por qué se clasificó así */}
-          <DetailBlock title="Por qué — evidencia de reglas">
+          <DetailBlock title="Why — rule evidence">
             <div className="space-y-2.5 text-sm">
               <Field label="Trigger" value={data.trigger_description} />
               {le.matched_by && (
-                <Field label="Lender identificado por" value={`${le.matched_by}${le.matched_domain ? ` (${le.matched_domain})` : ''}`} mono />
+                <Field label="Lender identified by" value={`${le.matched_by}${le.matched_domain ? ` (${le.matched_domain})` : ''}`} mono />
               )}
               {we.matches?.length > 0 && (
                 <div>
-                  <p className="eyebrow mb-1">Coincidencias de waiver (score {we.score})</p>
+                  <p className="eyebrow mb-1">Waiver matches (score {we.score})</p>
                   <ul className="list-disc list-inside text-xs text-muted space-y-0.5">
                     {we.matches.map((mm, i) => <li key={i}>{mm}</li>)}
                   </ul>
                 </div>
               )}
-              {v.prompt_injection_detected && <Stamp tone="stop">inyección de prompt detectada</Stamp>}
+              {v.prompt_injection_detected && <Stamp tone="stop">prompt injection detected</Stamp>}
             </div>
           </DetailBlock>
 
           {/* Enriquecimiento desde la matriz */}
           {m && (
-            <DetailBlock title="Requisitos (matriz lender-waiver)">
+            <DetailBlock title="Requirements (lender-waiver matrix)">
               <div className="space-y-2.5">
-                <Field label="Evidencia (Ops)" value={m.evidence_required_ops} />
-                <Field label="Evidencia (Seguros)" value={m.evidence_required_insurance} />
+                <Field label="Evidence (Ops)" value={m.evidence_required_ops} />
+                <Field label="Evidence (Insurance)" value={m.evidence_required_insurance} />
                 <Field label="Waiver pack" value={m.waiver_pack} />
-                <Field label="Acciones a automatizar" value={m.actions_to_automate} />
+                <Field label="Actions to automate" value={m.actions_to_automate} />
                 {m.documents?.length > 0 && (
                   <div>
-                    <p className="eyebrow mb-1.5">Documentos esperados</p>
+                    <p className="eyebrow mb-1.5">Expected documents</p>
                     <div className="flex flex-wrap gap-1.5">
                       {m.documents.map((d) => <Stamp key={d} tone="neutral">{d}</Stamp>)}
                     </div>
@@ -239,9 +239,9 @@ function ClassificationDrawer({ id, open, onClose, onChanged, onCorrect, onRejec
 
           {/* Documentos esperados vs SharePoint (match exacto) */}
           {docs && (
-            <DetailBlock title={`Documentos en SharePoint — ${docs.found}/${docs.total} encontrados`}>
+            <DetailBlock title={`Documents in SharePoint — ${docs.found}/${docs.total} found`}>
               {docs.documents.length === 0 ? (
-                <p className="text-sm text-muted">Sin documentos esperados para este waiver.</p>
+                <p className="text-sm text-muted">No expected documents for this waiver.</p>
               ) : (
                 <ul className="space-y-1.5">
                   {docs.documents.map((d) => (
@@ -253,15 +253,15 @@ function ClassificationDrawer({ id, open, onClose, onChanged, onCorrect, onRejec
                             <button
                               onClick={() => setPdf(d.matches[0])}
                               className="inline-flex items-center gap-1 text-navy hover:text-coral transition-colors"
-                              title={`Ver ${d.matches[0].name}`}
+                              title={`View ${d.matches[0].name}`}
                             >
-                              <FileText size={14} /> <span className="text-xs">Ver</span>
+                              <FileText size={14} /> <span className="text-xs">View</span>
                             </button>
                           )}
-                          <Stamp tone="ok">encontrado</Stamp>
+                          <Stamp tone="ok">found</Stamp>
                         </div>
                       ) : (
-                        <Stamp tone="stop">no encontrado</Stamp>
+                        <Stamp tone="stop">not found</Stamp>
                       )}
                     </li>
                   ))}
@@ -271,11 +271,11 @@ function ClassificationDrawer({ id, open, onClose, onChanged, onCorrect, onRejec
           )}
 
           {data.secondary_issues?.length > 0 && (
-            <Field label="Issues secundarios" value={data.secondary_issues.join(' · ')} />
+            <Field label="Secondary issues" value={data.secondary_issues.join(' · ')} />
           )}
 
           {data.suggested_attachments?.length > 0 && (
-            <DetailBlock title="Adjuntos sugeridos">
+            <DetailBlock title="Suggested attachments">
               <div className="space-y-1">
                 {data.suggested_attachments.map((p) => <p key={p} className="token break-all">{p}</p>)}
               </div>
@@ -283,23 +283,23 @@ function ClassificationDrawer({ id, open, onClose, onChanged, onCorrect, onRejec
           )}
 
           {data.suggested_response && (
-            <DetailBlock title="Borrador de respuesta">
+            <DetailBlock title="Suggested reply">
               <pre className="text-xs whitespace-pre-wrap font-sans text-ink/90 leading-relaxed">{data.suggested_response}</pre>
             </DetailBlock>
           )}
 
           {data.raw_llm_response && (
-            <DetailBlock title="Razonamiento del modelo (LLM)">
+            <DetailBlock title="Model reasoning (LLM)">
               <pre className="text-xs whitespace-pre-wrap font-sans text-ink/80 leading-relaxed">{data.raw_llm_response}</pre>
             </DetailBlock>
           )}
 
           {/* Correo original */}
           {data.email && (
-            <DetailBlock title="Correo original">
+            <DetailBlock title="Original email">
               <div className="space-y-2">
-                <Field label="De" value={data.email.sender} mono />
-                <Field label="Asunto" value={data.email.subject} />
+                <Field label="From" value={data.email.sender} mono />
+                <Field label="Subject" value={data.email.subject} />
                 <pre className="text-xs whitespace-pre-wrap font-sans text-ink/80 leading-relaxed max-h-60 overflow-y-auto mt-1">
                   {data.email.body_text?.slice(0, 4000)}
                 </pre>
@@ -311,10 +311,10 @@ function ClassificationDrawer({ id, open, onClose, onChanged, onCorrect, onRejec
           {data.status === 'classified' ? (
             <div className="flex gap-2 pt-1">
               <button onClick={approve} disabled={approving} className="btn btn-ok flex-1 py-2 text-sm">
-                {approving && <Spinner className="border-white/40 border-t-white" />} Aprobar
+                {approving && <Spinner className="border-white/40 border-t-white" />} Approve
               </button>
-              <button onClick={() => onCorrect(data)} className="btn btn-ghost flex-1">Corregir</button>
-              <button onClick={() => onReject(data)} className="btn btn-danger flex-1 py-2">Rechazar</button>
+              <button onClick={() => onCorrect(data)} className="btn btn-ghost flex-1">Correct</button>
+              <button onClick={() => onReject(data)} className="btn btn-danger flex-1 py-2">Reject</button>
             </div>
           ) : (
             <div className="flex items-center gap-2 text-sm text-muted card px-4 py-3">
@@ -347,10 +347,10 @@ function ConfidenceSummary({ stats }) {
   const c = stats?.classifications_by_confidence || {}
   return (
     <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-      <ConfCard label="Total" value={stats?.total_classified} threshold="clasificados por reglas" accent="border-navy" dim="#1C2445" />
-      <ConfCard label="Alta" value={c.high} threshold="≥ 85%" accent="border-ok" dim="#0F7B4A" />
-      <ConfCard label="Media" value={c.medium} threshold="60 – 85%" accent="border-warn" dim="#B45309" />
-      <ConfCard label="Baja" value={c.low} threshold="< 60% · revisar" accent="border-stop" dim="#B42318" />
+      <ConfCard label="Total" value={stats?.total_classified} threshold="classified by rules" accent="border-navy" dim="#1C2445" />
+      <ConfCard label="High" value={c.high} threshold="≥ 85%" accent="border-ok" dim="#0F7B4A" />
+      <ConfCard label="Medium" value={c.medium} threshold="60 – 85%" accent="border-warn" dim="#B45309" />
+      <ConfCard label="Low" value={c.low} threshold="< 60% · review" accent="border-stop" dim="#B42318" />
     </div>
   )
 }
@@ -391,15 +391,15 @@ export default function ClassificationsPage() {
   return (
     <div className="p-8 space-y-6 max-w-6xl">
       <PageHeader
-        title="Clasificaciones"
-        subtitle={`${data.total} resultados. Abre una para ver el porqué, aprobar o corregir.`}
+        title="Classifications"
+        subtitle={`${data.total} results. Open one to see the why, approve or correct.`}
         actions={
           <div className="flex gap-2">
             <select value={level} onChange={(e) => setLevel(e.target.value)} className="field">
-              <option value="">Toda confianza</option>
-              <option value="high">Alta (&gt; 85%)</option>
-              <option value="medium">Media (60-85%)</option>
-              <option value="low">Baja (&lt; 60%)</option>
+              <option value="">All confidence</option>
+              <option value="high">High (&gt; 85%)</option>
+              <option value="medium">Medium (60-85%)</option>
+              <option value="low">Low (&lt; 60%)</option>
             </select>
           </div>
         }
@@ -420,8 +420,8 @@ export default function ClassificationsPage() {
       ) : visible.length === 0 ? (
         <Empty>
           {tab === 'REJECTED'
-            ? 'Sin clasificaciones rechazadas.'
-            : 'Sin clasificaciones en este estado.'}
+            ? 'No rejected classifications.'
+            : 'No classifications in this status.'}
         </Empty>
       ) : (
         <div className="space-y-3">
@@ -438,7 +438,7 @@ export default function ClassificationsPage() {
                     <span className="font-semibold text-navy">{c.lender}</span>
                     <span className="text-faint">·</span>
                     <span className="text-ink">{c.waiver_type}</span>
-                    {c.escalate_for_review && <Stamp tone="stop">escalar</Stamp>}
+                    {c.escalate_for_review && <Stamp tone="stop">escalate</Stamp>}
                     {c.status !== 'classified' && <Stamp tone={STATUS_TONE[c.status] || 'neutral'}>{c.status}</Stamp>}
                   </div>
                   {c.trigger_description && <p className="text-xs text-muted mt-1.5 truncate max-w-xl">{c.trigger_description}</p>}
@@ -450,7 +450,7 @@ export default function ClassificationsPage() {
                     </Stamp>
                     <p className="font-mono text-[11px] text-faint uppercase tracking-wider">{c.communication_category}</p>
                   </div>
-                  <IconButton icon={Eye} label="Ver" onClick={() => setSelected(c.id)} />
+                  <IconButton icon={Eye} label="View" onClick={() => setSelected(c.id)} />
                 </div>
               </div>
             </article>
