@@ -369,7 +369,7 @@ export default function EmailsPage() {
       {loading ? (
         <Loading />
       ) : (
-        <div className="card overflow-hidden">
+        <div className="card overflow-x-auto">
           <table className="ledger">
             <thead>
               <tr>

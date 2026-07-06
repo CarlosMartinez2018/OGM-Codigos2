@@ -65,7 +65,7 @@ export function Kpi({ label, value, sub, tone = 'coral' }) {
   return (
     <div className={`card card-hover px-5 py-4 border-l-[3px] ${tick}`}>
       <p className="eyebrow">{label}</p>
-      <p className={`display text-[2.4rem] leading-none ${accent} mt-2.5 tnum`}>
+      <p className={`display text-[2.4rem] leading-normal ${accent} mt-2 tnum`}>
         {value ?? '—'}
       </p>
       {sub && <p className="text-xs text-muted mt-2">{sub}</p>}
@@ -94,7 +94,7 @@ export function StatCard({ icon: Icon, label, value, sub, tone = 'navy' }) {
           </span>
         )}
       </div>
-      <p className="display text-[2rem] leading-none text-navy mt-3 tnum">{value ?? '—'}</p>
+      <p className="display text-[2rem] leading-normal text-navy mt-2 tnum">{value ?? '—'}</p>
       {sub && <p className="text-xs text-muted mt-1.5">{sub}</p>}
     </div>
   )
@@ -147,7 +147,7 @@ export function PageHeader({ title, subtitle, actions }) {
       <div>
         <div className="flex items-center gap-2.5">
           <span className="h-6 w-1 rounded-full bg-coral" aria-hidden="true" />
-          <h1 className="display text-[1.75rem] leading-none text-navy">{title}</h1>
+          <h1 className="display text-[1.75rem] leading-tight text-navy pt-0.5">{title}</h1>
         </div>
         {subtitle && <p className="text-sm text-muted mt-2 ml-3.5 max-w-[65ch]">{subtitle}</p>}
       </div>

@@ -64,8 +64,8 @@
   }
   .field:focus { border-color:#E2664B; box-shadow:0 0 0 3px rgba(226,102,75,.30); }
 
-  /* Tabla ledger */
-  .ledger { @apply w-full text-sm border-separate border-spacing-0; }
+  /* Tabla ledger — min-width para que haga scroll-x en pantallas chicas */
+  .ledger { @apply w-full text-sm border-separate border-spacing-0 min-w-[42rem]; }
   .ledger thead th {
     @apply text-left px-4 py-2.5 text-[11px] font-semibold uppercase tracking-label
            text-faint border-b border-line;

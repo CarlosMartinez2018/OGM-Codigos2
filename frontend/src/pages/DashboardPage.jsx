@@ -67,7 +67,7 @@ export default function DashboardPage() {
             <div className="flex flex-wrap items-end justify-between gap-6">
               <div>
                 <p className="text-[11px] font-semibold uppercase tracking-label text-coral">Confianza media del lote</p>
-                <p className="display text-6xl leading-none mt-2 tnum">
+                <p className="display text-6xl leading-tight mt-2 tnum pt-1 pb-1">
                   {stats?.avg_confidence != null ? `${Math.round(stats.avg_confidence * 100)}` : '—'}
                   <span className="text-2xl text-white/50 ml-1">%</span>
                 </p>
@@ -136,7 +136,7 @@ export default function DashboardPage() {
             <div className="grid grid-cols-3 divide-x divide-line">
               {byStatus.map(([status, count]) => (
                 <div key={status} className="px-4 first:pl-0">
-                  <p className="display text-4xl text-navy tnum">{count}</p>
+                  <p className="display text-4xl text-navy tnum pt-1">{count}</p>
                   <p className="eyebrow mt-1.5">{status}</p>
                 </div>
               ))}
