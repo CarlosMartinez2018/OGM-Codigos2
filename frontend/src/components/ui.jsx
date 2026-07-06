@@ -65,7 +65,7 @@ export function Kpi({ label, value, sub, tone = 'coral' }) {
   return (
     <div className={`card card-hover px-5 py-4 border-l-[3px] ${tick}`}>
       <p className="eyebrow">{label}</p>
-      <p className={`display text-[2.4rem] leading-tight ${accent} mt-2.5 pt-1 tnum`}>
+      <p className={`display text-[2.4rem] leading-normal ${accent} mt-2 tnum`}>
         {value ?? '—'}
       </p>
       {sub && <p className="text-xs text-muted mt-2">{sub}</p>}
@@ -94,7 +94,7 @@ export function StatCard({ icon: Icon, label, value, sub, tone = 'navy' }) {
           </span>
         )}
       </div>
-      <p className="display text-[2rem] leading-tight text-navy mt-3 pt-1 tnum">{value ?? '—'}</p>
+      <p className="display text-[2rem] leading-normal text-navy mt-2 tnum">{value ?? '—'}</p>
       {sub && <p className="text-xs text-muted mt-1.5">{sub}</p>}
     </div>
   )
