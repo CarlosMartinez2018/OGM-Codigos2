@@ -106,8 +106,16 @@ export function StatStrip({ children, cols = 4 }) {
   return <div className={`grid grid-cols-2 ${grid} gap-3`}>{children}</div>
 }
 
-export function Bar({ label, count, total, mono = false }) {
+// snake_case / camelCase técnico -> texto legible ("hilo_incompleto" -> "Hilo incompleto").
+export function humanize(s) {
+  if (!s) return s
+  const t = String(s).replace(/[_-]+/g, ' ').replace(/([a-z])([A-Z])/g, '$1 $2').trim().toLowerCase()
+  return t.charAt(0).toUpperCase() + t.slice(1)
+}
+
+export function Bar({ label, count, total, mono = false, tone = 'navy' }) {
   const pct = total > 0 ? Math.round((count / total) * 100) : 0
+  const fill = tone === 'alert' ? 'bg-coral' : 'bg-navy'
   return (
     <div className="flex items-center gap-3 group">
       <span
@@ -116,13 +124,13 @@ export function Bar({ label, count, total, mono = false }) {
       >
         {label}
       </span>
-      <div className="flex-1 h-2 rounded-full bg-line overflow-hidden">
+      <div className="flex-1 h-2 rounded-full bg-[#EDF2F7] overflow-hidden">
         <div
-          className="h-full rounded-full transition-[width] duration-700 ease-out"
-          style={{ width: `${pct}%`, background: 'linear-gradient(90deg, #1C2445, #E2664B)' }}
+          className={`h-full rounded-full transition-[width] duration-700 ease-out ${fill}`}
+          style={{ width: `${pct}%` }}
         />
       </div>
-      <span className="w-9 text-right font-mono text-xs text-muted tnum group-hover:text-coral transition-colors">{count}</span>
+      <span className="w-9 text-right font-mono text-xs text-muted tnum">{count}</span>
     </div>
   )
 }

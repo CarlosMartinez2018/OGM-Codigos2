@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { RefreshCw, Mail, Sparkles, AlertTriangle, Paperclip } from 'lucide-react'
 import { emailsApi, inboxApi, metaApi, reviewsApi, settingsApi, classificationsApi, sharepointApi } from '../lib/api'
 import { fmtDate, fmtDateTime } from '../lib/dates'
-import { PageHeader, Loading, Empty, ErrorBox, Field, DetailBlock, Stamp, Spinner, IconButton, StatCard, StatStrip } from '../components/ui'
+import { PageHeader, Loading, Empty, ErrorBox, Field, DetailBlock, Stamp, Spinner, IconButton, StatCard, StatStrip, humanize } from '../components/ui'
 import Tabs from '../components/Tabs'
 import Drawer from '../components/Drawer'
 import Modal from '../components/Modal'
@@ -186,7 +186,7 @@ function EmailDrawer({ item, open, onClose, onChanged }) {
           {item?.review && (
             <div className="card px-4 py-3 bg-warn/[0.06] border-warn/25">
               <p className="eyebrow mb-1">Por qué está en revisión</p>
-              <p className="text-sm text-ink">{item.review.reason || item.review.stage}</p>
+              <p className="text-sm text-ink">{item.review.reason || humanize(item.review.stage)}</p>
             </div>
           )}
           <div className="grid grid-cols-2 gap-4">

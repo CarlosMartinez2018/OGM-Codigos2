@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { Mail, Sparkles, AlertTriangle, Building2 } from 'lucide-react'
 import { metaApi, classificationsApi } from '../lib/api'
-import { StatCard, StatStrip, Bar, Card, PageHeader, Spinner, Loading, Empty, ErrorBox } from '../components/ui'
+import { StatCard, StatStrip, Bar, Card, PageHeader, Spinner, Loading, Empty, ErrorBox, humanize } from '../components/ui'
 
 export default function DashboardPage() {
   const [stats, setStats] = useState(null)
@@ -48,7 +48,7 @@ export default function DashboardPage() {
         title="Panel de control"
         subtitle="Actividad del pipeline de clasificación de waivers."
         actions={
-          <button onClick={runClassification} disabled={running} className="btn btn-primary">
+          <button onClick={runClassification} disabled={running} className="btn btn-coral">
             {running && <Spinner className="border-white/40 border-t-white" />}
             Clasificar pendientes
           </button>
@@ -125,7 +125,7 @@ export default function DashboardPage() {
               ) : (
                 <div className="space-y-3">
                   {byStage.map(([stage, count]) => (
-                    <Bar key={stage} label={stage} count={count} total={pendingReviews} mono />
+                    <Bar key={stage} label={humanize(stage)} count={count} total={pendingReviews} tone="alert" />
                   ))}
                 </div>
               )}
