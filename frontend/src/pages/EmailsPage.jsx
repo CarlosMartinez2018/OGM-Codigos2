@@ -318,7 +318,6 @@ export default function EmailsPage() {
   const pendingReviews = stats?.pending_reviews_by_stage
     ? Object.values(stats.pending_reviews_by_stage).reduce((a, n) => a + n, 0)
     : 0
-  const withAttachments = data.items.filter((e) => e.has_attachments).length
 
   return (
     <div className="p-8 space-y-6 max-w-6xl">
@@ -357,7 +356,6 @@ export default function EmailsPage() {
         <StatCard icon={Mail} tone="navy" label="Total emails" value={stats?.total_emails ?? data.total} sub="ingested in production" />
         <StatCard icon={Sparkles} tone="coral" label="Classified" value={stats?.total_classified ?? 0} sub="by pre-filter rules" />
         <StatCard icon={AlertTriangle} tone="warn" label="To review" value={pendingReviews} sub="in review queue" />
-        <StatCard icon={Paperclip} tone="ok" label="With attachments" value={withAttachments} sub="on this page" />
       </StatStrip>
 
       <Tabs
@@ -385,7 +383,14 @@ export default function EmailsPage() {
                 const est = ESTADO[e.estado] || ESTADO.sin_procesar
                 return (
                   <tr key={e.id} className="cursor-pointer" onClick={() => setSelected(e)}>
-                    <td className="max-w-md truncate text-ink" title={e.subject}>{e.subject || '(no subject)'}</td>
+                    <td className="max-w-md text-ink">
+                      <span className="flex items-center gap-1.5 min-w-0">
+                        {e.has_attachments && (
+                          <Paperclip size={13} className="shrink-0 text-muted" aria-label="Has attachments" />
+                        )}
+                        <span className="truncate" title={e.subject}>{e.subject || '(no subject)'}</span>
+                      </span>
+                    </td>
                     <td className="text-muted truncate max-w-[13rem]" title={e.sender}>{e.sender}</td>
                     <td><span className="token">{e.sender_domain}</span></td>
                     <td>
