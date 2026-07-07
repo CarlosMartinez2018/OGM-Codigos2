@@ -339,7 +339,7 @@ class EmailClassifier:
             return result
 
         result.waiver_type = entry["waiver_type"]
-        result.documents_expected = entry["documents_expected"]
+        result.documents_expected = list(entry["documents_expected"])
         result.required_evidence_ops = entry["evidence_required_ops"]
         result.required_evidence_insurance = entry["evidence_required_insurance"]
         result.waiver_pack = entry["waiver_pack"]
@@ -778,7 +778,9 @@ class EmailClassifier:
         validation: dict[str, Any],
     ) -> ClassificationResult:
         waiver_type = waiver_entry["waiver_type"] if waiver_entry else "UNKNOWN"
-        documents_expected = waiver_entry["documents_expected"] if waiver_entry else []
+        # Copia: la lista vive en el kb compartido del lote; un alias mutado
+        # corromperia la matriz para los correos siguientes.
+        documents_expected = list(waiver_entry["documents_expected"]) if waiver_entry else []
 
         # v2 (punto 6): el lender NO suma puntos — identificarlo es solo la
         # puerta de entrada (preflight). El score 0-100% mide unicamente que tan
@@ -930,7 +932,7 @@ class EmailClassifier:
                 if entry["waiver_type"] == llm_waiver
             )
             enhanced.waiver_type = matching["waiver_type"]
-            enhanced.documents_expected = matching["documents_expected"]
+            enhanced.documents_expected = list(matching["documents_expected"])
             enhanced.required_evidence_ops = matching["evidence_required_ops"]
             enhanced.required_evidence_insurance = matching["evidence_required_insurance"]
             enhanced.waiver_pack = matching["waiver_pack"]

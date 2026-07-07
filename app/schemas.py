@@ -12,10 +12,17 @@ import re
 from typing import Optional
 
 
+# Cota dura de trabajo para la limpieza: cuerpos gigantes (dumps, HTML inline)
+# se truncan antes de aplicar regex. Sin esta cota, un correo de ~1MB puede
+# colgar el pipeline entero (la limpieza corre antes que cualquier gate).
+_MAX_CLEAN_LEN = 120_000
+
+
 def clean_email_body(text: str) -> str:
     """Elimina firmas, disclaimers, enlaces largos y mantiene el hilo original de correos."""
     if not text:
         return ""
+    text = text[:_MAX_CLEAN_LEN]
 
     # 1. Eliminar advertencias de seguridad (suelen venir al principio del correo)
     text = re.sub(r'(?i)CAUTION:\s*This email originated from outside.*?is safe\.\s*', '', text)
@@ -34,8 +41,10 @@ def clean_email_body(text: str) -> str:
         r"(?im)^From:\s+.*",
         r"(?im)^-+\s*Original Message\s*-+",
         r"(?im)^-+\s*Mensaje Original\s*-+",
-        r"(?im).*<.*@.*>.*escribió:\s*$",
-        r"(?im).*<.*@.*>.*wrote:\s*$"
+        # Cuantificadores acotados y clases negadas: la version con `.*<.*@.*>.*`
+        # backtrackeaba polinomicamente (15s en un cuerpo de 64KB).
+        r"(?im)^.{0,200}<[^<>\s]{1,120}@[^<>\s]{1,120}>.{0,200}escribió:\s*$",
+        r"(?im)^.{0,200}<[^<>\s]{1,120}@[^<>\s]{1,120}>.{0,200}wrote:\s*$"
     ]
 
     # Patrones que indican el inicio de una firma o disclaimer corporativo
