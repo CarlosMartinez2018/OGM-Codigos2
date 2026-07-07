@@ -28,7 +28,7 @@ from rich.console import Console
 from rich.table import Table
 from datetime import datetime, timezone
 
-from sqlalchemy import delete, select, update
+from sqlalchemy import case, delete, select, update
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -37,6 +37,7 @@ from app.core.config import settings
 from app.services import feedback_context
 from app.db.database import async_session, engine, init_db
 from app.db.models import (
+    ClassifierQaExample,
     DomainLenderMap,
     EmailClassification,
     EmailReview,
@@ -45,6 +46,7 @@ from app.db.models import (
     ProductionEmail,
     TrainingEmail,
 )
+from app.services import qa_examples
 from app.schemas import ClassificationResult, EmailData
 
 logger = logging.getLogger(__name__)
@@ -279,6 +281,10 @@ class EmailClassifier:
         # La validacion de reglas de negocio se aplica SIEMPRE (con o sin LLM).
         result = self._enforce_validation(result, kb)
 
+        # Aprendizaje Q&A: ejemplos confirmados por el operador (aprobar/corregir).
+        qa_matches = qa_examples.rank_examples(email, kb.get("qa_rows", []), limit=3)
+        result = self._apply_qa_examples(result, qa_matches, kb)
+
         # El LLM solo aporta cuando hay un lender valido con waivers configurados;
         # para correos internos/ruido/UNKNOWN se salta (evita llamadas inutiles y lentas).
         if settings.use_llm_classifier and self._llm_is_useful(result, kb):
@@ -289,6 +295,61 @@ class EmailClassifier:
         result.secondary_issues = _secondary_issues(email, result.lender, result.waiver_type, kb)
         result.suggested_attachments = _find_attachments(result.lender, settings.document_base_path)
 
+        return result
+
+    # Umbral de similitud para confiar en un ejemplo confirmado por el operador.
+    _QA_SIMILARITY_MIN = 0.60
+    # Solo se adopta el waiver del ejemplo si las reglas estan inseguras.
+    _QA_RULES_UNSURE = 0.35
+
+    def _apply_qa_examples(
+        self,
+        result: ClassificationResult,
+        qa_matches: list[dict[str, Any]],
+        kb: dict[str, Any],
+    ) -> ClassificationResult:
+        """Retrieval de casos confirmados: si un correo muy similar ya fue
+        aprobado/corregido por el operador para el MISMO lender y las reglas
+        estan inseguras, se adopta ese waiver (validado contra la matriz)."""
+        if not qa_matches:
+            return result
+        result.validation_details = dict(result.validation_details or {})
+        result.validation_details["qa_examples"] = qa_matches
+
+        best = qa_matches[0]
+        if best["similarity"] < self._QA_SIMILARITY_MIN:
+            return result
+        if best["lender"] != result.lender or result.lender == "UNKNOWN":
+            return result
+        rules_unsure = (
+            result.waiver_type == "UNKNOWN"
+            or result.confidence_score < self._QA_RULES_UNSURE
+        )
+        if not rules_unsure:
+            return result
+
+        entry = next(
+            (e for e in kb["by_lender"].get(result.lender, [])
+             if e["waiver_type"] == best["waiver_type"]),
+            None,
+        )
+        if entry is None:
+            return result
+
+        result.waiver_type = entry["waiver_type"]
+        result.documents_expected = entry["documents_expected"]
+        result.required_evidence_ops = entry["evidence_required_ops"]
+        result.required_evidence_insurance = entry["evidence_required_insurance"]
+        result.waiver_pack = entry["waiver_pack"]
+        result.actions_to_automate = entry["actions_to_automate"]
+        result.confidence_score = round(
+            max(result.confidence_score, min(0.75, best["similarity"])), 3
+        )
+        result.confidence_level = _confidence_level(result.confidence_score)
+        result.trigger_description = (
+            (result.trigger_description + " | " if result.trigger_description else "")
+            + f"Operator-confirmed example matched (similarity {best['similarity']:.2f})"
+        )
         return result
 
     def _llm_is_useful(self, result: ClassificationResult, kb: dict[str, Any]) -> bool:
@@ -424,6 +485,8 @@ class EmailClassifier:
         result: "preflight.PreflightResult",
         case_id: str,
     ) -> None:
+        discarded = result.disposition == preflight.DISPOSITION_DESCARTADO
+        now = datetime.now(timezone.utc)
         stmt = pg_insert(EmailReview).values(
             production_email_id=production_email.id,
             message_id=production_email.message_id,
@@ -432,16 +495,34 @@ class EmailClassifier:
             stage=result.stage,
             reason=result.reason,
             detected_original_sender=result.detected_original_sender,
+            status=result.disposition,
+            resolved_at=now if discarded else None,
         )
+        # Solo los estados automaticos (PENDIENTE/GESTIONADO) se actualizan al
+        # reprocesar; DESCARTADO/CONTESTADO puestos por un humano se respetan.
+        auto = EmailReview.status.in_(("PENDIENTE", "GESTIONADO"))
         stmt = stmt.on_conflict_do_update(
             index_elements=["message_id", "stage"],
             set_={
                 "reason": stmt.excluded.reason,
                 "detected_original_sender": stmt.excluded.detected_original_sender,
                 "case_id": stmt.excluded.case_id,
+                "status": case((auto, stmt.excluded.status), else_=EmailReview.status),
+                "resolved_at": case((auto, stmt.excluded.resolved_at), else_=EmailReview.resolved_at),
             },
         )
         await session.execute(stmt)
+
+        # Reviews PENDIENTE de OTRAS etapas (corridas previas con reglas viejas,
+        # p.ej. 'reenvio'/'hilo_incompleto') quedarian tapando el estado nuevo:
+        # se cierran como GESTIONADO. Las resoluciones humanas no se tocan.
+        await session.execute(
+            update(EmailReview)
+            .where(EmailReview.message_id == production_email.message_id)
+            .where(EmailReview.stage != result.stage)
+            .where(EmailReview.status == "PENDIENTE")
+            .values(status="GESTIONADO", resolved_at=now)
+        )
 
     async def _load_business_data(self, session: AsyncSession) -> dict[str, Any]:
         domain_rows = (await session.scalars(select(DomainLenderMap))).all()
@@ -489,6 +570,12 @@ class EmailClassifier:
         for entry in entries:
             by_lender.setdefault(entry["lender"], []).append(entry)
 
+        qa_rows = (await session.scalars(
+            select(ClassifierQaExample)
+            .order_by(ClassifierQaExample.updated_at.desc())
+            .limit(500)
+        )).all()
+
         return {
             "domain_map": domain_map,
             "authorized_lenders": authorized_lenders,
@@ -496,6 +583,7 @@ class EmailClassifier:
             "by_lender": by_lender,
             "domain_status": domain_status,
             "domain_name": domain_name,
+            "qa_rows": list(qa_rows),
         }
 
     async def _load_training_examples(
@@ -566,6 +654,15 @@ class EmailClassifier:
             if domain in domain_map and domain not in INTERNAL_DOMAINS:
                 lender = domain_map[domain]
                 evidence.update({"matched_domain": domain, "matched_by": "recipient_domain", "authorized": True})
+                return lender, evidence
+
+        # Reenvios/internos: dominios aprobados citados en el cuerpo
+        # (cabeceras "From:" reenviadas, firmas del lender).
+        for match in re.finditer(r"[\w.\-+%]+@([\w.\-]+\.\w+)", email.body_text or ""):
+            domain = match.group(1).lower()
+            if domain in domain_map and domain not in INTERNAL_DOMAINS:
+                lender = domain_map[domain]
+                evidence.update({"matched_domain": domain, "matched_by": "body_domain", "authorized": True})
                 return lender, evidence
 
         text = _normalize(f"{email.sender} {email.subject} {email.body_text[:3000]}")
@@ -678,10 +775,14 @@ class EmailClassifier:
         waiver_type = waiver_entry["waiver_type"] if waiver_entry else "UNKNOWN"
         documents_expected = waiver_entry["documents_expected"] if waiver_entry else []
 
-        lender_score = 0.45 if validation["lender_in_domain_map"] else (0.20 if lender != "UNKNOWN" else 0.0)
-        waiver_score = min(0.45, float(validation["waiver_evidence"].get("score", 0.0)))
+        # v2 (punto 6): el lender NO suma puntos — identificarlo es solo la
+        # puerta de entrada (preflight). El score 0-100% mide unicamente que tan
+        # bien coincide el correo con el waiver del lender en la matriz.
+        waiver_score = float(validation["waiver_evidence"].get("score", 0.0))
         validation_bonus = 0.10 if validation["waiver_valid_for_lender"] else 0.0
-        confidence = max(0.0, min(1.0, lender_score + waiver_score + validation_bonus))
+        confidence = max(0.0, min(1.0, waiver_score + validation_bonus))
+        if waiver_entry is None:
+            confidence = 0.0
         if validation["prompt_injection_detected"]:
             confidence = min(confidence, 0.20)
 
@@ -770,6 +871,16 @@ class EmailClassifier:
             },
             # Aprendizaje continuo: correcciones/rechazos humanos previos.
             "operator_feedback": feedback_context.read_context()[-1500:],
+            # Few-shot: correos similares ya confirmados por el operador.
+            "operator_confirmed_examples": [
+                {
+                    "subject": ex["subject"][:120],
+                    "lender": ex["lender"],
+                    "waiver_type": ex["waiver_type"],
+                    "similarity": ex["similarity"],
+                }
+                for ex in (rule_result.validation_details or {}).get("qa_examples", [])
+            ],
             "email": {
                 "subject": email.subject,
                 "body_text": email.body_text[:1500],

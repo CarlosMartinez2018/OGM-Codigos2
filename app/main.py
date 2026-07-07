@@ -35,6 +35,7 @@ from app.core.config import settings
 from app.db.database import async_session, engine, init_db
 from app.db.models import (
     AppSetting,
+    ClassifierQaExample,
     DomainLenderMap,
     EmailClassification,
     EmailReview,
@@ -43,7 +44,7 @@ from app.db.models import (
     ProductionEmail,
     SharePointFile,
 )
-from app.services import feedback_context, lender_approval
+from app.services import feedback_context, lender_approval, qa_examples
 from app.services.llm_classifier import classifier
 from app.services.sharepoint.connector import sharepoint
 
@@ -182,7 +183,8 @@ _STAGE_LABELS = {
     "hilo_incompleto": "Hilo incompleto",
     "reenvio": "Reenvío",
     "seguridad_bloqueo": "Seguridad / bloqueo",
-    "duplicado": "Misma conversación",
+    "duplicado": "Hilo: hay correo más reciente",
+    "sin_lender": "Sin lender aprobado",
 }
 
 
@@ -715,6 +717,12 @@ async def approve_classification(
     row.status = "reviewed"
     row.reviewed_by = reviewed_by
     row.updated_at = datetime.now(timezone.utc)
+
+    # Q&A training: la aprobacion confirma el par lender/waiver como ejemplo.
+    await qa_examples.record_example(
+        session, row.message_id, row.lender, row.waiver_type, source="approve",
+    )
+
     await session.commit()
     await session.refresh(row)
     return _classification_to_dict(row)
@@ -754,6 +762,12 @@ async def correct_classification(
     if matrix is not None:
         row.documents_expected = [d.document_name for d in sorted(matrix.documents, key=lambda d: d.position)]
 
+    # Q&A training: la correccion es el ejemplo mas valioso (verdad del operador).
+    await qa_examples.record_example(
+        session, row.message_id, body.corrected_lender, body.corrected_waiver_type,
+        source="correct", notes=body.notes,
+    )
+
     row.updated_at = datetime.now(timezone.utc)
     await session.commit()
     await session.refresh(row)
@@ -780,6 +794,37 @@ async def reject_classification(
     await session.commit()
     await session.refresh(row)
     return _classification_to_dict(row)
+
+
+@app.get("/api/v1/qa-examples")
+async def list_qa_examples(
+    limit: int = Query(default=100, ge=1, le=500),
+    session: AsyncSession = Depends(get_session),
+) -> dict[str, Any]:
+    """Ejemplos Q&A confirmados por el operador (training del clasificador)."""
+    rows = (await session.scalars(
+        select(ClassifierQaExample)
+        .order_by(ClassifierQaExample.updated_at.desc())
+        .limit(limit)
+    )).all()
+    return {
+        "total": len(rows),
+        "items": [
+            {
+                "id": r.id,
+                "message_id": r.message_id,
+                "subject": r.subject,
+                "sender_domain": r.sender_domain,
+                "lender": r.lender,
+                "waiver_type": r.waiver_type,
+                "source": r.source,
+                "notes": r.notes,
+                "created_at": r.created_at.isoformat() if r.created_at else None,
+                "updated_at": r.updated_at.isoformat() if r.updated_at else None,
+            }
+            for r in rows
+        ],
+    }
 
 
 @app.get("/api/v1/feedback-context")
@@ -1211,6 +1256,63 @@ async def _match_documents(session: AsyncSession, docs: list[str]) -> list[dict[
     return result
 
 
+# Ruido tipico de asuntos de correo que no identifica al caso.
+_SUBJECT_STOPWORDS = frozenset({
+    "fw", "fwd", "re", "rv", "external", "urgent", "reminder", "important",
+    "notice", "notification", "first", "second", "third", "final",
+    "request", "review", "questions", "insurance", "loan", "number",
+    "borrower", "name", "llc", "inc", "email", "mail", "coverage",
+    "compliance", "non", "identified", "required", "please",
+})
+
+
+def _subject_tokens(subject: str) -> list[str]:
+    return [t for t in _doc_tokens(subject) if t not in _SUBJECT_STOPWORDS]
+
+
+async def _match_subject_documents(
+    session: AsyncSession, subject: str, limit: int = 10
+) -> list[dict[str, Any]]:
+    """Archivos de SharePoint cuyo nombre comparte tokens significativos con el
+    asunto del correo (propiedad, prestatario, numero de loan).
+
+    Criterio: >=2 tokens en comun, o 1 token fuerte (numero de >=5 digitos,
+    tipicamente el loan number). Los .eml/.msg se excluyen: son correspondencia,
+    no evidencia. Ordena por cantidad de tokens coincidentes (fuertes pesan
+    doble) y por nombre mas ajustado.
+    """
+    tokens = set(_subject_tokens(subject or ""))
+    if not tokens:
+        return []
+    files = (await session.scalars(
+        select(SharePointFile).where(SharePointFile.is_folder.is_(False))
+    )).all()
+
+    scored: list[tuple[int, int, dict[str, Any]]] = []
+    for f in files:
+        _stem, ext = _strip_ext(f.name)
+        if ext in _EMAIL_EXTS:
+            continue
+        ftoks = set(_doc_tokens(f.name))
+        hits = tokens & ftoks
+        if not hits:
+            continue
+        strong = any(t.isdigit() and len(t) >= 5 for t in hits)
+        if len(hits) < 2 and not strong:
+            continue
+        rank = -(len(hits) + (2 if strong else 0))
+        scored.append((rank, len(ftoks - tokens), {
+            "id": f.id,
+            "name": f.name,
+            "drive_name": f.drive_name,
+            "web_url": f.web_url,
+            "file_extension": f.file_extension,
+            "matched_tokens": sorted(hits),
+        }))
+    scored.sort(key=lambda m: (m[0], m[1]))
+    return [m[2] for m in scored[:limit]]
+
+
 @app.get("/api/v1/classifications/{classification_id}/documents")
 async def classification_documents(
     classification_id: int,
@@ -1234,6 +1336,20 @@ async def classification_documents(
 
     items = await _match_documents(session, docs)
     found = sum(1 for it in items if it["found"])
+
+    # Punto 5: evidencia adicional — archivos SharePoint relacionados con el
+    # asunto del correo (propiedad / loan number), independiente de la matriz.
+    email_row = None
+    if row.production_email_id is not None:
+        email_row = await session.get(ProductionEmail, row.production_email_id)
+    if email_row is None:
+        email_row = await session.scalar(
+            select(ProductionEmail).where(ProductionEmail.message_id == row.message_id)
+        )
+    subject_matches = await _match_subject_documents(
+        session, email_row.subject if email_row else ""
+    )
+
     return {
         "lender": row.lender,
         "waiver_type": row.waiver_type,
@@ -1241,6 +1357,7 @@ async def classification_documents(
         "found": found,
         "missing": len(items) - found,
         "documents": items,
+        "subject_matches": subject_matches,
     }
 
 
@@ -1263,3 +1380,13 @@ async def documents_match(
     found = sum(1 for it in items if it["found"])
     return {"lender": lender, "waiver_type": waiver_type, "total": len(items),
             "found": found, "missing": len(items) - found, "documents": items}
+
+
+@app.get("/api/v1/documents/match-subject")
+async def documents_match_subject(
+    subject: str = Query(..., min_length=3),
+    session: AsyncSession = Depends(get_session),
+) -> dict[str, Any]:
+    """Archivos SharePoint relacionados con un asunto de correo (punto 5)."""
+    items = await _match_subject_documents(session, subject)
+    return {"subject": subject, "total": len(items), "documents": items}

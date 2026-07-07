@@ -270,6 +270,29 @@ function ClassificationDrawer({ id, open, onClose, onChanged, onCorrect, onRejec
             </DetailBlock>
           )}
 
+          {/* Archivos SharePoint relacionados con el asunto (propiedad / loan number) */}
+          {docs?.subject_matches?.length > 0 && (
+            <DetailBlock title={`Files related to the subject — ${docs.subject_matches.length}`}>
+              <ul className="space-y-1.5">
+                {docs.subject_matches.map((f) => (
+                  <li key={f.id} className="flex items-center justify-between gap-3 text-sm">
+                    <span className="text-ink min-w-0 truncate" title={f.name}>{f.name}</span>
+                    <div className="flex items-center gap-2 shrink-0">
+                      <button
+                        onClick={() => setPdf(f)}
+                        className="inline-flex items-center gap-1 text-navy hover:text-coral transition-colors"
+                        title={`View ${f.name}`}
+                      >
+                        <FileText size={14} /> <span className="text-xs">View</span>
+                      </button>
+                      <Stamp tone="neutral">{f.matched_tokens?.join(' · ')}</Stamp>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            </DetailBlock>
+          )}
+
           {data.secondary_issues?.length > 0 && (
             <Field label="Secondary issues" value={data.secondary_issues.join(' · ')} />
           )}

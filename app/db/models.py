@@ -170,6 +170,38 @@ class EmailClassification(Base):
 
 
 # ---------------------------------------------------------------------------
+# Ejemplos Q&A del operador: cada aprobacion/correccion de la UI se vuelve un
+# ejemplo (correo -> lender/waiver confirmado) que el clasificador reutiliza
+# como few-shot (LLM) y como retrieval por similitud (reglas).
+# ---------------------------------------------------------------------------
+
+class ClassifierQaExample(Base):
+    __tablename__ = "classifier_qa_examples"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    message_id: Mapped[str] = mapped_column(String(500), nullable=False)
+    subject: Mapped[str] = mapped_column(Text, default="")
+    body_excerpt: Mapped[str] = mapped_column(Text, default="")
+    sender_domain: Mapped[str] = mapped_column(String(255), default="")
+    lender: Mapped[str] = mapped_column(String(200), nullable=False)
+    waiver_type: Mapped[str] = mapped_column(String(200), nullable=False)
+    source: Mapped[str] = mapped_column(String(20), nullable=False)  # approve|correct
+    notes: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        default=lambda: datetime.now(timezone.utc),
+        onupdate=lambda: datetime.now(timezone.utc),
+    )
+
+    __table_args__ = (
+        UniqueConstraint("message_id", name="uq_qa_example_message"),
+    )
+
+
+# ---------------------------------------------------------------------------
 # Cola de revision manual (correos descartados por el pre-filtrado)
 # ---------------------------------------------------------------------------
 

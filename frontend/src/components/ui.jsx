@@ -119,9 +119,10 @@ const STAGE_LABELS = {
   hilo_incompleto: 'Incomplete thread',
   lender_nuevo: 'New lender',
   lender_por_aprobar: 'Lender to approve',
-  duplicado: 'Duplicate',
+  duplicado: 'Superseded in thread',
   blacklist: 'Blacklist',
   no_aprobado: 'Not approved',
+  sin_lender: 'No approved lender',
 }
 export function stageLabel(s) {
   return STAGE_LABELS[s] || humanize(s)
