@@ -75,11 +75,15 @@ async def record_example(
         email = await session.scalar(
             select(ProductionEmail).where(ProductionEmail.message_id == message_id)
         )
+    if email is None:
+        # Sin correo no hay texto que aprender: un ejemplo vacio solo
+        # ensuciaria el retrieval.
+        return
     stmt = pg_insert(ClassifierQaExample).values(
         message_id=message_id,
-        subject=(email.subject if email else "") or "",
-        body_excerpt=((email.body_text if email else "") or "")[:_EXCERPT_LEN],
-        sender_domain=(email.sender_domain if email else "") or "",
+        subject=email.subject or "",
+        body_excerpt=(email.body_text or "")[:_EXCERPT_LEN],
+        sender_domain=email.sender_domain or "",
         lender=lender,
         waiver_type=waiver_type,
         source=source,

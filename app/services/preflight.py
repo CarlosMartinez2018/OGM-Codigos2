@@ -40,7 +40,6 @@ class PreflightResult:
     reason: str = ""
     detected_original_sender: Optional[str] = None
     disposition: str = DISPOSITION_PENDIENTE
-    detected_lender: Optional[str] = None
 
 
 def _sender_domain(email: EmailData) -> str:
