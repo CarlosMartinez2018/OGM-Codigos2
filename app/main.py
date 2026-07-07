@@ -1272,6 +1272,9 @@ _SUBJECT_STOPWORDS = frozenset({
     "request", "review", "questions", "insurance", "loan", "number",
     "borrower", "name", "llc", "inc", "email", "mail", "coverage",
     "compliance", "non", "identified", "required", "please",
+    # Boilerplate corporativo del cliente: aparece en casi todos los asuntos
+    # y nombres de archivo; un bigrama como "real estate" no identifica el caso.
+    "acento", "real", "estate", "partners", "smp", "spe", "portfolio", "group",
 })
 
 
@@ -1279,44 +1282,93 @@ def _subject_tokens(subject: str) -> list[str]:
     return [t for t in _doc_tokens(subject) if t not in _SUBJECT_STOPWORDS]
 
 
+def _token_seq(text: str) -> list[str]:
+    """Tokens en orden de aparicion (preserva adyacencia para bigramas)."""
+    return [t for t in re.split(r"[^a-z0-9]+", (text or "").lower()) if t]
+
+
+def _is_significant(token: str) -> bool:
+    return (
+        (token.isdigit() or len(token) >= 2)
+        and token not in _DOC_STOPWORDS
+        and token not in _SUBJECT_STOPWORDS
+    )
+
+
+def _bigrams(seq: list[str]) -> set[tuple[str, str]]:
+    """Pares de palabras SUCESIVAS donde ambas son significativas."""
+    return {
+        (a, b) for a, b in zip(seq, seq[1:])
+        if _is_significant(a) and _is_significant(b)
+    }
+
+
 async def _match_subject_documents(
     session: AsyncSession, subject: str, limit: int = 10
 ) -> list[dict[str, Any]]:
-    """Archivos de SharePoint cuyo nombre comparte tokens significativos con el
-    asunto del correo (propiedad, prestatario, numero de loan).
+    """Archivos de SharePoint relacionados con el asunto del correo.
 
-    Criterio: >=2 tokens en comun, o 1 token fuerte (numero de >=5 digitos,
-    tipicamente el loan number). Los .eml/.msg se excluyen: son correspondencia,
-    no evidencia. Ordena por cantidad de tokens coincidentes (fuertes pesan
-    doble) y por nombre mas ajustado.
+    Criterio (anti-ruido): el nombre del archivo debe compartir con el asunto
+    al menos UN bigrama — 2 palabras significativas SUCESIVAS, p.ej.
+    "burnam woods" — o un numero fuerte (>=5 digitos, tipicamente el loan
+    number). Tokens sueltos dispersos ya no bastan: "apartments" + "llc" en
+    puntas opuestas del nombre traia archivos de otras propiedades.
+
+    Archivos cuyo nombre solo tiene 1 token significativo (p.ej. "SOV.xlsx")
+    no pueden formar bigrama: matchean si ese token aparece en el asunto y es
+    especifico (>=4 caracteres o numero fuerte).
+
+    Los .eml/.msg se excluyen (correspondencia, no evidencia). Orden: mas
+    bigramas compartidos primero (numeros fuertes pesan mas), luego nombre
+    mas ajustado.
     """
-    tokens = set(_subject_tokens(subject or ""))
-    if not tokens:
+    subject_seq = _token_seq(subject or "")
+    subject_bigrams = _bigrams(subject_seq)
+    subject_sig = {t for t in subject_seq if _is_significant(t)}
+    strong_nums = {t for t in subject_sig if t.isdigit() and len(t) >= 5}
+    if not subject_sig:
         return []
+
     files = (await session.scalars(
         select(SharePointFile).where(SharePointFile.is_folder.is_(False))
     )).all()
 
     scored: list[tuple[int, int, dict[str, Any]]] = []
     for f in files:
-        _stem, ext = _strip_ext(f.name)
+        stem, ext = _strip_ext(f.name)
         if ext in _EMAIL_EXTS:
             continue
-        ftoks = set(_doc_tokens(f.name))
-        hits = tokens & ftoks
-        if not hits:
+        # Tokenizar el stem: la extension (pdf/xlsx) no identifica el caso
+        # y formaria bigramas basura con la ultima palabra del nombre.
+        fseq = _token_seq(stem)
+        fsig = {t for t in fseq if _is_significant(t)}
+        if not fsig:
             continue
-        strong = any(t.isdigit() and len(t) >= 5 for t in hits)
-        if len(hits) < 2 and not strong:
-            continue
-        rank = -(len(hits) + (2 if strong else 0))
-        scored.append((rank, len(ftoks - tokens), {
+
+        shared_strong = strong_nums & fsig
+        matched: list[str] = sorted(shared_strong)
+        if len(fsig) >= 2:
+            shared_bigrams = subject_bigrams & _bigrams(fseq)
+            if not shared_bigrams and not shared_strong:
+                continue
+            matched = sorted(" ".join(b) for b in shared_bigrams) + matched
+            rank = -(2 * len(shared_bigrams) + 3 * len(shared_strong))
+        else:
+            # Nombre de un solo token: exigir token especifico presente en el asunto.
+            hits = fsig & subject_sig
+            specific = {t for t in hits if len(t) >= 4 or t in strong_nums}
+            if not specific:
+                continue
+            matched = sorted(specific)
+            rank = -(1 + 2 * len(shared_strong))
+
+        scored.append((rank, len(fsig - subject_sig), {
             "id": f.id,
             "name": f.name,
             "drive_name": f.drive_name,
             "web_url": f.web_url,
             "file_extension": f.file_extension,
-            "matched_tokens": sorted(hits),
+            "matched_tokens": matched,
         }))
     scored.sort(key=lambda m: (m[0], m[1]))
     return [m[2] for m in scored[:limit]]
