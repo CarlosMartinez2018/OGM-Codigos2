@@ -31,12 +31,21 @@ def test_rank_prefers_most_similar():
         _row("m1", "AB Sublimit Deficiency - Maple Ridge Apartments",
              "Please review the A&B sublimit deficiency for the property.",
              "JLL", "A&B Sublimit Waiver"),
-        _row("m2", "Equipment breakdown limit", "different topic entirely about boilers",
+        _row("m2", "Equipment breakdown limit deficiency",
+             "different topic about boilers at the property",
              "KeyBank", "Equipment Breakdown Waiver"),
     ]
     ranked = qa_examples.rank_examples(email, rows, limit=2)
     assert ranked[0]["message_id"] == "m1"
-    assert ranked[0]["similarity"] > ranked[1]["similarity"]
+    assert ranked[0]["similarity"] > 0.9  # casi identico
+    assert all(r["similarity"] < ranked[0]["similarity"] for r in ranked[1:])
+
+
+def test_rank_drops_zero_overlap():
+    email = EmailData(subject="AB Sublimit Deficiency", body_text="sublimit deficiency review")
+    rows = [_row("m9", "boiler maintenance schedule", "janitorial contract renewal",
+                 "KeyBank", "Equipment Breakdown Waiver")]
+    assert qa_examples.rank_examples(email, rows, limit=2) == []
 
 
 def test_rank_domain_bonus():

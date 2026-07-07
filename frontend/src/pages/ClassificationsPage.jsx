@@ -371,9 +371,9 @@ function ConfidenceSummary({ stats }) {
   return (
     <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
       <ConfCard label="Total" value={stats?.total_classified} threshold="classified by rules" accent="border-navy" dim="#1C2445" />
-      <ConfCard label="High" value={c.high} threshold="≥ 85%" accent="border-ok" dim="#0F7B4A" />
-      <ConfCard label="Medium" value={c.medium} threshold="60 – 85%" accent="border-warn" dim="#B45309" />
-      <ConfCard label="Low" value={c.low} threshold="< 60% · review" accent="border-stop" dim="#B42318" />
+      <ConfCard label="High" value={c.high} threshold="≥ 75%" accent="border-ok" dim="#0F7B4A" />
+      <ConfCard label="Medium" value={c.medium} threshold="45 – 75%" accent="border-warn" dim="#B45309" />
+      <ConfCard label="Low" value={c.low} threshold="< 45% · review" accent="border-stop" dim="#B42318" />
     </div>
   )
 }

@@ -236,9 +236,11 @@ def _split_triggers(raw: str | None) -> list[str]:
 
 
 def _confidence_level(score: float) -> str:
-    if score >= 0.85:
+    # Calibrado a la escala waiver-only (v2): sin los 0.45 base del lender,
+    # las bandas bajan. high = nombre del waiver o triggers en el asunto.
+    if score >= 0.75:
         return "high"
-    if score >= 0.60:
+    if score >= 0.45:
         return "medium"
     return "low"
 
@@ -696,12 +698,15 @@ class EmailClassifier:
             score = 0.0
             matches: list[str] = []
 
+            # Pesos calibrados a la escala waiver-only (v2): el score final es
+            # SOLO esta evidencia, asi que un match razonable debe quedar en
+            # banda media y uno fuerte (asunto) en banda alta.
             waiver_name = _normalize(entry["waiver_type"])
             if waiver_name and waiver_name in subject:
-                score += 0.35
+                score += 0.45
                 matches.append(f"subject waiver name: {entry['waiver_type']}")
             elif waiver_name and waiver_name in body:
-                score += 0.20
+                score += 0.30
                 matches.append(f"body waiver name: {entry['waiver_type']}")
 
             for trigger in entry.get("trigger_list", []):
@@ -709,15 +714,15 @@ class EmailClassifier:
                 if not normalized_trigger:
                     continue
                 if normalized_trigger in subject:
-                    score += 0.25
+                    score += 0.30
                     matches.append(f"subject trigger: {trigger}")
                 elif normalized_trigger in body:
-                    score += 0.15
+                    score += 0.20
                     matches.append(f"body trigger: {trigger}")
 
             token_hits = self._token_overlap(waiver_name, haystack)
             if token_hits:
-                score += min(0.20, token_hits * 0.04)
+                score += min(0.35, token_hits * 0.07)
                 matches.append(f"waiver token hits: {token_hits}")
 
             if score > best_score:
