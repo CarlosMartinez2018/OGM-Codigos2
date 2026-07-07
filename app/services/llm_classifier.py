@@ -693,47 +693,71 @@ class EmailClassifier:
         best_entry: Optional[dict[str, Any]] = None
         best_score = 0.0
         best_matches: list[str] = []
+        best_signals: dict[str, float] = {}
 
+        # Score = COBERTURA normalizada 0..1 de lo identificado (v3):
+        #   0.55 * senal_nombre  (nombre del waiver: literal en asunto = 1.0,
+        #          literal en cuerpo = 0.7, si no fraccion de sus tokens
+        #          significativos presentes en el correo)
+        # + 0.35 * senal_trigger (mejor trigger del waiver: literal en asunto
+        #          = 1.0, cuerpo = 0.75, cobertura de tokens >= 50% escala 0.6)
+        # (+0.10 de bonus por par lender-waiver valido en _build_rule_result)
+        # Un match perfecto da 100%; nada identificado da 0%.
         for entry in candidates:
-            score = 0.0
             matches: list[str] = []
 
-            # Pesos calibrados a la escala waiver-only (v2): el score final es
-            # SOLO esta evidencia, asi que un match razonable debe quedar en
-            # banda media y uno fuerte (asunto) en banda alta.
             waiver_name = _normalize(entry["waiver_type"])
+            name_tokens = [t for t in re.findall(r"[a-z0-9]+", waiver_name)
+                           if len(t) > 2 and t not in _TOKEN_STOPWORDS]
             if waiver_name and waiver_name in subject:
-                score += 0.45
+                name_signal = 1.0
                 matches.append(f"subject waiver name: {entry['waiver_type']}")
             elif waiver_name and waiver_name in body:
-                score += 0.30
+                name_signal = 0.7
                 matches.append(f"body waiver name: {entry['waiver_type']}")
+            elif name_tokens:
+                hits = sum(1 for t in name_tokens if t in haystack)
+                name_signal = hits / len(name_tokens)
+                if hits:
+                    matches.append(f"waiver name tokens: {hits}/{len(name_tokens)}")
+            else:
+                name_signal = 0.0
 
+            trigger_signal = 0.0
             for trigger in entry.get("trigger_list", []):
                 normalized_trigger = _normalize(trigger)
                 if not normalized_trigger:
                     continue
                 if normalized_trigger in subject:
-                    score += 0.30
-                    matches.append(f"subject trigger: {trigger}")
+                    sig, desc = 1.0, f"subject trigger: {trigger}"
                 elif normalized_trigger in body:
-                    score += 0.20
-                    matches.append(f"body trigger: {trigger}")
+                    sig, desc = 0.75, f"body trigger: {trigger}"
+                else:
+                    ttoks = [t for t in re.findall(r"[a-z0-9]+", normalized_trigger)
+                             if len(t) > 2 and t not in _TOKEN_STOPWORDS]
+                    ratio = (sum(1 for t in ttoks if t in haystack) / len(ttoks)) if ttoks else 0.0
+                    if ratio < 0.5:
+                        continue
+                    sig, desc = 0.6 * ratio, f"trigger tokens ({ratio:.0%}): {trigger}"
+                if sig > 0:
+                    matches.append(desc)
+                if sig > trigger_signal:
+                    trigger_signal = sig
 
-            token_hits = self._token_overlap(waiver_name, haystack)
-            if token_hits:
-                score += min(0.35, token_hits * 0.07)
-                matches.append(f"waiver token hits: {token_hits}")
+            score = 0.55 * name_signal + 0.35 * trigger_signal
 
             if score > best_score:
                 best_entry = entry
                 best_score = score
                 best_matches = matches
+                best_signals = {"name_signal": round(name_signal, 3),
+                                "trigger_signal": round(trigger_signal, 3)}
 
         return best_entry, {
             "score": round(best_score, 3),
             "matches": best_matches,
             "candidate_count": len(candidates),
+            **best_signals,
         }
 
     def _token_overlap(self, waiver_name: str, haystack: str) -> int:
