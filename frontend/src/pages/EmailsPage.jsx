@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
-import { RefreshCw, Mail, Sparkles, AlertTriangle, Paperclip } from 'lucide-react'
+import { RefreshCw, Mail, Sparkles, AlertTriangle, Paperclip, Trash2 } from 'lucide-react'
 import { emailsApi, inboxApi, metaApi, reviewsApi, settingsApi, classificationsApi, sharepointApi } from '../lib/api'
 import { fmtDate, fmtDateTime } from '../lib/dates'
 import { PageHeader, Loading, Empty, ErrorBox, Field, DetailBlock, Stamp, Spinner, IconButton, StatCard, StatStrip, stageLabel } from '../components/ui'
@@ -20,6 +20,7 @@ const ESTADO = {
 
 const INBOX_TABS = [
   { key: 'general', label: 'General' },
+  { key: 'clasificados', label: 'Classified' },
   { key: 'por_revisar', label: 'To review' },
   { key: 'descartado', label: 'Discarded' },
   { key: 'contestado', label: 'Answered' },
@@ -315,10 +316,6 @@ export default function EmailsPage() {
   const from = data.total === 0 ? 0 : offset + 1
   const to = Math.min(offset + PAGE, data.total)
 
-  const pendingReviews = stats?.pending_reviews_by_stage
-    ? Object.values(stats.pending_reviews_by_stage).reduce((a, n) => a + n, 0)
-    : 0
-
   return (
     <div className="p-8 space-y-6 max-w-6xl">
       <PageHeader
@@ -352,10 +349,13 @@ export default function EmailsPage() {
         </div>
       </div>
 
+      {/* Tarjetas y tabs salen del MISMO conteo del servidor: la suma de
+          Classified + Discarded + To review (+ Answered) da General. */}
       <StatStrip>
-        <StatCard icon={Mail} tone="navy" label="Total emails" value={stats?.total_emails ?? data.total} sub="ingested in production" />
-        <StatCard icon={Sparkles} tone="coral" label="Classified" value={stats?.total_classified ?? 0} sub="by pre-filter rules" />
-        <StatCard icon={AlertTriangle} tone="warn" label="To review" value={pendingReviews} sub="in review queue" />
+        <StatCard icon={Mail} tone="navy" label="General" value={data.counts?.general ?? data.total} sub="all emails" />
+        <StatCard icon={Sparkles} tone="coral" label="Classified" value={data.counts?.clasificados ?? 0} sub="lender + waiver identified" />
+        <StatCard icon={AlertTriangle} tone="warn" label="To review" value={data.counts?.por_revisar ?? 0} sub="needs human review" />
+        <StatCard icon={Trash2} tone="neutral" label="Discarded" value={data.counts?.descartado ?? 0} sub="auto-discarded by rules" />
       </StatStrip>
 
       <Tabs

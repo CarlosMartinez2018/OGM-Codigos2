@@ -444,31 +444,39 @@ async def email_thread(
 # Bandeja unificada: correo + estado derivado (clasificacion + revision)
 # ---------------------------------------------------------------------------
 
-# Prioridad de estado y a que tab pertenece.
+# Prioridad de estado y a que tab pertenece. Particion: cada correo cae en
+# exactamente una tab (fuera de "general"), asi las tarjetas SUMAN al total.
 _INBOX_TABS = {
     "general": None,  # todos
+    "clasificados": {"clasificada", "aprobado", "rechazado"},
     "por_revisar": {"por_revisar"},
     "descartado": {"descartado"},
-    "contestado": {"contestado", "aprobado"},
+    "contestado": {"contestado"},
 }
 
 
 def _derive_estado(cls, reviews: list) -> str:
-    """Estado unificado del correo a partir de su clasificacion y revisiones."""
+    """Estado unificado del correo a partir de su clasificacion y revisiones.
+
+    Prioridad: revision humana pendiente > respuesta humana > clasificacion
+    viva > descarte. GESTIONADO es solo un cierre automatico (el correo se
+    clasifico despues); no cuenta como contestado ni tapa la clasificacion.
+    Una review DESCARTADO residual de una corrida vieja tampoco esconde una
+    clasificacion vigente.
+    """
     statuses = {r.status for r in reviews}
     if "PENDIENTE" in statuses:
         return "por_revisar"
-    if "DESCARTADO" in statuses:
-        return "descartado"
-    if statuses & {"CONTESTADO", "GESTIONADO"}:
+    if "CONTESTADO" in statuses:
         return "contestado"
     if cls is not None:
         if cls.status in ("reviewed", "corrected"):
             return "aprobado"
         if cls.status == "rejected":
             return "rechazado"
-        if cls.status == "classified":
-            return "clasificada"
+        return "clasificada"
+    if "DESCARTADO" in statuses:
+        return "descartado"
     return "sin_procesar"
 
 
@@ -504,7 +512,8 @@ async def inbox(
     term = (search or "").lower().strip()
     dfrom = (from_date or "").strip() or None
     dto = (to_date or "").strip() or None
-    counts = {"general": 0, "por_revisar": 0, "descartado": 0, "contestado": 0}
+    counts = {"general": 0, "clasificados": 0, "por_revisar": 0,
+              "descartado": 0, "contestado": 0}
     items: list[dict[str, Any]] = []
     for e in emails:
         if term and term not in (e.subject or "").lower() and term not in (e.sender or "").lower():
