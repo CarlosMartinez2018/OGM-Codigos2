@@ -686,7 +686,10 @@ class EmailClassifier:
     ) -> tuple[Optional[dict[str, Any]], dict[str, Any]]:
         subject = _normalize(email.subject)
         body = _normalize(email.body_text)
-        haystack = f"{subject} {body}"
+        # Los nombres de adjuntos son evidencia deliberada del remitente
+        # ("ACORD 25 - GL A&B endorsement.pdf") — pesan como el cuerpo.
+        attachments = _normalize(" ".join(email.attachment_names or []))
+        haystack = f"{subject} {body} {attachments}"
         candidates = kb["by_lender"].get(lender) if lender != "UNKNOWN" else kb["entries"]
         candidates = candidates or []
 
@@ -712,9 +715,10 @@ class EmailClassifier:
             if waiver_name and waiver_name in subject:
                 name_signal = 1.0
                 matches.append(f"subject waiver name: {entry['waiver_type']}")
-            elif waiver_name and waiver_name in body:
+            elif waiver_name and (waiver_name in body or waiver_name in attachments):
                 name_signal = 0.7
-                matches.append(f"body waiver name: {entry['waiver_type']}")
+                where = "body" if waiver_name in body else "attachment"
+                matches.append(f"{where} waiver name: {entry['waiver_type']}")
             elif name_tokens:
                 hits = sum(1 for t in name_tokens if t in haystack)
                 name_signal = hits / len(name_tokens)
@@ -732,6 +736,8 @@ class EmailClassifier:
                     sig, desc = 1.0, f"subject trigger: {trigger}"
                 elif normalized_trigger in body:
                     sig, desc = 0.75, f"body trigger: {trigger}"
+                elif normalized_trigger in attachments:
+                    sig, desc = 0.75, f"attachment trigger: {trigger}"
                 else:
                     ttoks = [t for t in re.findall(r"[a-z0-9]+", normalized_trigger)
                              if len(t) > 2 and t not in _TOKEN_STOPWORDS]

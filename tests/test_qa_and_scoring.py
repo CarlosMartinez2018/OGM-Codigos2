@@ -174,6 +174,20 @@ def test_injection_caps_confidence():
     assert r.confidence_score <= 0.20
 
 
+def test_attachment_names_count_as_waiver_evidence():
+    clf = EmailClassifier()
+    kb = _kb_with_entry()
+    plain = EmailData(subject="Property docs", body_text="Please find the requested documents attached here.")
+    with_att = EmailData(subject="Property docs",
+                         body_text="Please find the requested documents attached here.",
+                         attachment_names=["A&B Sublimit Waiver - GL endorsement.pdf"])
+    entry = kb["by_lender"]["JLL"][0]
+    _, ev_plain = clf._identify_waiver(plain, "JLL", kb)
+    _, ev_att = clf._identify_waiver(with_att, "JLL", kb)
+    assert ev_att["score"] > ev_plain["score"]
+    assert any("attachment" in m for m in ev_att["matches"])
+
+
 def test_confidence_clamped_to_one():
     clf = EmailClassifier()
     email = EmailData(subject="x", body_text="body largo suficiente para el test de scoring")
