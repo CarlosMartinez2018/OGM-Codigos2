@@ -19,6 +19,7 @@ from __future__ import annotations
 import re
 import time
 from contextlib import asynccontextmanager
+from pathlib import Path
 from datetime import datetime, timezone
 from typing import Any, AsyncIterator, Optional
 
@@ -247,14 +248,18 @@ def _classification_to_dict(row: EmailClassification) -> dict[str, Any]:
 # Meta
 # ---------------------------------------------------------------------------
 
-@app.get("/")
-async def root() -> dict[str, Any]:
-    return {
-        "app": settings.app_name,
-        "version": "0.1.0",
-        "docs": "/docs",
-        "api_base": "/api/v1",
-    }
+@app.get("/", include_in_schema=False)
+async def root() -> Response:
+    """Con frontend compilado sirve la consola; si no (dev API-only), info JSON."""
+    index = Path(__file__).resolve().parent.parent / "frontend" / "dist" / "index.html"
+    if index.is_file():
+        return Response(index.read_bytes(), media_type="text/html")
+    import json as _json
+    return Response(
+        _json.dumps({"app": settings.app_name, "version": "0.1.0",
+                     "docs": "/docs", "api_base": "/api/v1"}),
+        media_type="application/json",
+    )
 
 
 @app.get("/api/v1/health")
@@ -1451,3 +1456,30 @@ async def documents_match_subject(
     """Archivos SharePoint relacionados con un asunto de correo (punto 5)."""
     items = await _match_subject_documents(session, subject)
     return {"subject": subject, "total": len(items), "documents": items}
+
+
+# ---------------------------------------------------------------------------
+# Frontend estatico (produccion / contenedor): sirve el build de Vite si
+# existe. En desarrollo el frontend corre aparte en :5173 con proxy /api.
+# ---------------------------------------------------------------------------
+
+_FRONTEND_DIST = Path(__file__).resolve().parent.parent / "frontend" / "dist"
+
+if _FRONTEND_DIST.is_dir():
+    from fastapi.staticfiles import StaticFiles
+
+    app.mount("/assets", StaticFiles(directory=_FRONTEND_DIST / "assets"), name="assets")
+
+    @app.get("/{full_path:path}", include_in_schema=False)
+    async def spa_fallback(full_path: str) -> Response:
+        """SPA fallback: rutas del router de React devuelven index.html;
+        archivos sueltos del dist (logo, favicon) se sirven directo."""
+        candidate = (_FRONTEND_DIST / full_path).resolve()
+        if (full_path and not full_path.startswith("api/")
+                and candidate.is_file()
+                and candidate.is_relative_to(_FRONTEND_DIST)):
+            import mimetypes
+            ctype = mimetypes.guess_type(candidate.name)[0] or "application/octet-stream"
+            return Response(candidate.read_bytes(), media_type=ctype)
+        index = _FRONTEND_DIST / "index.html"
+        return Response(index.read_bytes(), media_type="text/html")
