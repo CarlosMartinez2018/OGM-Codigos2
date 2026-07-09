@@ -9,7 +9,8 @@ on:
   workflow_dispatch:
 
 env:
-  IMAGE: ghcr.io/${{ github.repository_owner }}/acento-classifier
+  # ghcr exige minusculas; github.repository_owner viene como CarlosMartinez2018
+  IMAGE: ghcr.io/carlosmartinez2018/acento-classifier
 
 jobs:
   build-push:
